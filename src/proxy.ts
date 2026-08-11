@@ -19,15 +19,14 @@ export default auth((req) => {
   // Logged-in users shouldn't access auth pages (login/register)
   if (isLoggedIn && path.startsWith('/auth/')) {
     // Basic redirect based on role (fine-grained auth happens in server components)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const role = (req.auth?.user as any)?.role;
+    const role = req.auth?.user?.role;
     
     if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
-      return NextResponse.redirect(new URL('/admin', req.url));
-    } else if (['MANAGER', 'TRAINER', 'RECEPTIONIST'].includes(role)) {
-      return NextResponse.redirect(new URL('/staff', req.url));
+      return NextResponse.redirect(new URL('/admin', req.url || 'http://localhost'));
+    } else if (['MANAGER', 'TRAINER', 'RECEPTIONIST'].includes(role as string)) {
+      return NextResponse.redirect(new URL('/staff', req.url || 'http://localhost'));
     } else {
-      return NextResponse.redirect(new URL('/member', req.url));
+      return NextResponse.redirect(new URL('/member', req.url || 'http://localhost'));
     }
   }
 

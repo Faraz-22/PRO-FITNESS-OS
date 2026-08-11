@@ -20,8 +20,7 @@ export async function requireRole(allowedRoles: Role | Role[]) {
   
   const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userRole = (user as any).role as Role;
+  const userRole = user.role as Role;
 
   if (!userRole || !roles.includes(userRole)) {
     redirect('/auth/unauthorized'); // or redirect back to their default dashboard

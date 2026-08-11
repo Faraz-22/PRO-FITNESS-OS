@@ -31,9 +31,10 @@ export async function POST(req: Request) {
         role: user.role,
       },
     }, { status: 201 });
-  } catch (error: any) {
-    if (error.message === 'User with this email already exists.') {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+  } catch (error: unknown) {
+    const err = error as Error;
+    if (err.message === 'User with this email already exists.') {
+      return NextResponse.json({ error: err.message }, { status: 409 });
     }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

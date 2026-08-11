@@ -118,3 +118,81 @@ export async function createVerificationToken(email: string) {
 
   return verificationToken.token;
 }
+
+/**
+ * Validates a verification token and marks email as verified
+ */
+export async function verifyEmail(token: string) {
+  const record = await prisma.verificationToken.findFirst({
+    where: { token },
+  });
+
+  if (!record) {
+    throw new Error('Invalid verification token');
+  }
+
+  if (record.expires < new Date()) {
+    throw new Error('Verification token has expired');
+  }
+
+  // Find user to verify
+  const user = await prisma.user.findUnique({
+    where: { email: record.identifier },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Update user and delete token
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: new Date() },
+    }),
+    prisma.verificationToken.delete({
+      where: {
+        identifier_token: {
+          identifier: record.identifier,
+          token: record.token,
+        },
+      },
+    }),
+  ]);
+
+  return true;
+}
+
+/**
+ * Resets a password using a valid token
+ */
+export async function resetPassword(rawToken: string, newPassword: string) {
+  const record = await validatePasswordResetToken(rawToken);
+  
+  if (!record) {
+    throw new Error('Invalid or expired reset token');
+  }
+
+  const hashedPassword = await hashPassword(newPassword);
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { hashedPassword },
+    }),
+    prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    }),
+    prisma.passwordResetToken.deleteMany({
+      where: {
+        userId: record.userId,
+        id: { not: record.id },
+        usedAt: null, // delete other unused tokens for security
+      },
+    }),
+  ]);
+
+  return true;
+}
+
