@@ -43,26 +43,29 @@ function VerifyEmailContent() {
   }, [token]);
 
   return (
-    <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-xl text-center">
-      <CardHeader>
-        <CardTitle className="text-2xl text-zinc-100">Email Verification</CardTitle>
-        <CardDescription className="text-zinc-400">
+    <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-2xl text-center">
+      <CardHeader className="space-y-2 pb-8">
+        <div className="mx-auto w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mb-2">
+          <div className="w-6 h-6 border-2 border-primary rounded-sm transform rotate-45"></div>
+        </div>
+        <CardTitle className="text-3xl font-bold tracking-tight text-foreground">Email Verification</CardTitle>
+        <CardDescription className="text-muted-foreground">
           Verifying your account details
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 py-8">
         {status === 'loading' && (
           <div className="flex flex-col items-center justify-center space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-            <p className="text-zinc-400">Please wait while we verify your email...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground font-medium">Please wait while we verify your email...</p>
           </div>
         )}
         
         {status === 'success' && (
           <div className="flex flex-col items-center justify-center space-y-4">
-            <CheckCircle className="h-12 w-12 text-green-500" />
-            <p className="text-zinc-200">Your email has been verified successfully!</p>
-            <Button onClick={() => router.push('/auth/login')} className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">
+            <CheckCircle className="h-12 w-12 text-success" />
+            <p className="text-foreground font-medium">Your email has been verified successfully!</p>
+            <Button onClick={() => router.push('/auth/login')} className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 font-medium">
               Continue to Login
             </Button>
           </div>
@@ -70,9 +73,9 @@ function VerifyEmailContent() {
 
         {status === 'error' && (
           <div className="flex flex-col items-center justify-center space-y-4">
-            <XCircle className="h-12 w-12 text-red-500" />
-            <p className="text-red-400">{errorMessage}</p>
-            <Button onClick={() => router.push('/auth/login')} variant="outline" className="mt-4 border-zinc-700 text-zinc-300">
+            <XCircle className="h-12 w-12 text-danger" />
+            <p className="text-danger font-medium">{errorMessage}</p>
+            <Button onClick={() => router.push('/auth/login')} variant="outline" className="mt-4 border-border text-foreground hover:bg-secondary h-11 px-8">
               Return to Login
             </Button>
           </div>
@@ -84,7 +87,7 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<div className="text-white text-center p-8">Loading...</div>}>
+    <Suspense fallback={<div className="text-foreground text-center p-8">Loading...</div>}>
       <VerifyEmailContent />
     </Suspense>
   );

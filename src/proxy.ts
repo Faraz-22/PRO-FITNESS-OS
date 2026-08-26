@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth/auth';
+import crypto from 'crypto';
 
 const protectedPaths = ['/member', '/staff', '/admin'];
 
@@ -30,7 +31,15 @@ export default auth((req) => {
     }
   }
 
-  return NextResponse.next();
+  let requestId = req.headers.get('x-request-id');
+  if (!requestId || requestId.length > 50) {
+    requestId = crypto.randomUUID();
+  }
+
+  const response = NextResponse.next();
+  response.headers.set('x-request-id', requestId);
+
+  return response;
 });
 
 export const config = {

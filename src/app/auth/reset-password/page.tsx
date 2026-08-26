@@ -35,8 +35,8 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-xl">
-        <CardContent className="pt-6 text-center text-red-500">
+      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-2xl">
+        <CardContent className="pt-8 text-center text-danger font-medium">
           Invalid or missing reset token.
         </CardContent>
       </Card>
@@ -68,56 +68,59 @@ function ResetPasswordForm() {
   };
 
   return (
-    <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-xl">
-      <CardHeader>
-        <CardTitle className="text-2xl text-zinc-100">Set New Password</CardTitle>
-        <CardDescription className="text-zinc-400">
+    <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-2xl">
+      <CardHeader className="space-y-2 text-center pb-8">
+        <div className="mx-auto w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mb-2">
+          <div className="w-6 h-6 border-2 border-primary rounded-sm transform rotate-45"></div>
+        </div>
+        <CardTitle className="text-3xl font-bold tracking-tight text-foreground">Set New Password</CardTitle>
+        <CardDescription className="text-muted-foreground">
           Please enter your new password
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           {status === 'success' && (
-            <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-500 border border-green-500/20">
+            <div className="rounded-md bg-success/10 p-3 text-sm text-success border border-success/20 font-medium text-center">
               Password has been successfully reset! Redirecting to login...
             </div>
           )}
           {status === 'error' && (
-            <div className="rounded-md bg-red-500/10 p-3 text-sm text-red-500 border border-red-500/20">
+            <div className="rounded-md bg-danger/10 p-3 text-sm text-danger border border-danger/20 font-medium text-center">
               {errorMessage}
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-zinc-300">New Password</Label>
+            <Label htmlFor="password" className="text-foreground">New Password</Label>
             <Input
               id="password"
               type="password"
-              className="bg-zinc-950/50 border-zinc-800 text-zinc-100"
+              className="bg-background/50 border-border/50 text-foreground focus-visible:ring-primary h-11"
               disabled={isSubmitting || status === 'success'}
               {...register('password')}
             />
             {errors.password && (
-              <p className="text-sm text-red-500">{errors.password.message}</p>
+              <p className="text-sm text-danger font-medium">{errors.password.message}</p>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword" className="text-zinc-300">Confirm Password</Label>
+            <Label htmlFor="confirmPassword" className="text-foreground">Confirm Password</Label>
             <Input
               id="confirmPassword"
               type="password"
-              className="bg-zinc-950/50 border-zinc-800 text-zinc-100"
+              className="bg-background/50 border-border/50 text-foreground focus-visible:ring-primary h-11"
               disabled={isSubmitting || status === 'success'}
               {...register('confirmPassword')}
             />
             {errors.confirmPassword && (
-              <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
+              <p className="text-sm text-danger font-medium">{errors.confirmPassword.message}</p>
             )}
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="pt-4">
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 font-medium text-base"
             disabled={isSubmitting || status === 'success'}
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
@@ -131,7 +134,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="text-white text-center p-8">Loading...</div>}>
+    <Suspense fallback={<div className="text-foreground text-center p-8">Loading...</div>}>
       <ResetPasswordForm />
     </Suspense>
   );

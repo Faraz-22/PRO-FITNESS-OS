@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Link from 'next/link';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -48,71 +49,77 @@ export default function LoginPage() {
       }
 
       router.push('/');
-      router.refresh(); // Ensure the layout updates with auth state
+      router.refresh();
     } catch {
       setError('An unexpected error occurred. Please try again.');
     }
   };
 
   return (
-    <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-xl">
-      <CardHeader>
-        <CardTitle className="text-2xl text-zinc-100">Welcome Back</CardTitle>
-        <CardDescription className="text-zinc-400">
+    <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-2xl">
+      <CardHeader className="space-y-2 text-center pb-8">
+        <div className="mx-auto w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mb-2">
+          <div className="w-6 h-6 border-2 border-primary rounded-sm transform rotate-45"></div>
+        </div>
+        <CardTitle className="text-3xl font-bold tracking-tight text-foreground">Welcome Back</CardTitle>
+        <CardDescription className="text-muted-foreground">
           Sign in to your Pro Fitness account
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           {error && (
-            <div className="rounded-md bg-red-500/10 p-3 text-sm text-red-500 border border-red-500/20">
+            <div className="rounded-md bg-danger/10 p-3 text-sm text-danger border border-danger/20 font-medium text-center">
               {error}
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-zinc-300">Email</Label>
+            <Label htmlFor="email" className="text-foreground">Email address</Label>
             <Input
               id="email"
               type="email"
               placeholder="name@example.com"
-              className="bg-zinc-950/50 border-zinc-800 text-zinc-100"
+              className="bg-background/50 border-border/50 text-foreground focus-visible:ring-primary h-11"
               disabled={isSubmitting}
               {...register('email')}
             />
             {errors.email && (
-              <p className="text-sm text-red-500">{errors.email.message}</p>
+              <p className="text-sm text-danger font-medium">{errors.email.message}</p>
             )}
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password" className="text-zinc-300">Password</Label>
+              <Label htmlFor="password" className="text-foreground">Password</Label>
+              <Link href="/auth/forgot-password" className="text-sm font-medium text-primary hover:text-primary/80">
+                Forgot password?
+              </Link>
             </div>
             <Input
               id="password"
               type="password"
-              className="bg-zinc-950/50 border-zinc-800 text-zinc-100"
+              className="bg-background/50 border-border/50 text-foreground focus-visible:ring-primary h-11"
               disabled={isSubmitting}
               {...register('password')}
             />
             {errors.password && (
-              <p className="text-sm text-red-500">{errors.password.message}</p>
+              <p className="text-sm text-danger font-medium">{errors.password.message}</p>
             )}
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
+        <CardFooter className="flex flex-col space-y-4 pt-4">
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 font-medium text-base"
             disabled={isSubmitting}
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Sign In
           </Button>
-          <div className="text-center text-sm text-zinc-400">
+          <div className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
-            <a href="/auth/register" className="text-blue-500 hover:text-blue-400 font-medium">
+            <Link href="/auth/register" className="text-primary hover:text-primary/80 font-medium">
               Register now
-            </a>
+            </Link>
           </div>
         </CardFooter>
       </form>

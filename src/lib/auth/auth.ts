@@ -31,16 +31,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { email },
         });
 
-        if (!user || !user.hashedPassword) {
+        console.log('User found? ', !!user); if (!user || !user.hashedPassword) {
           return null;
         }
 
-        const isValidPassword = await bcrypt.compare(
+        console.log('Comparing password...'); const isValidPassword = await bcrypt.compare(
           credentials.password as string,
           user.hashedPassword
         );
 
-        if (!isValidPassword) {
+        console.log('Password valid? ', isValidPassword); if (!isValidPassword) {
           return null;
         }
 

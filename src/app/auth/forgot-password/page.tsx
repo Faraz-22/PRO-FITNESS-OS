@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Link from 'next/link';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -45,54 +46,57 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <Card className="border-zinc-800 bg-zinc-900/50 backdrop-blur-xl">
-      <CardHeader>
-        <CardTitle className="text-2xl text-zinc-100">Reset Password</CardTitle>
-        <CardDescription className="text-zinc-400">
+    <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-2xl">
+      <CardHeader className="space-y-2 text-center pb-8">
+        <div className="mx-auto w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mb-2">
+          <div className="w-6 h-6 border-2 border-primary rounded-sm transform rotate-45"></div>
+        </div>
+        <CardTitle className="text-3xl font-bold tracking-tight text-foreground">Reset Password</CardTitle>
+        <CardDescription className="text-muted-foreground">
           Enter your email to receive a password reset link
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           {status === 'success' && (
-            <div className="rounded-md bg-green-500/10 p-3 text-sm text-green-500 border border-green-500/20">
+            <div className="rounded-md bg-success/10 p-3 text-sm text-success border border-success/20 font-medium text-center">
               If an account with that email exists, we sent a password reset link.
             </div>
           )}
           {status === 'error' && (
-            <div className="rounded-md bg-red-500/10 p-3 text-sm text-red-500 border border-red-500/20">
+            <div className="rounded-md bg-danger/10 p-3 text-sm text-danger border border-danger/20 font-medium text-center">
               {errorMessage}
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-zinc-300">Email</Label>
+            <Label htmlFor="email" className="text-foreground">Email address</Label>
             <Input
               id="email"
               type="email"
               placeholder="name@example.com"
-              className="bg-zinc-950/50 border-zinc-800 text-zinc-100"
+              className="bg-background/50 border-border/50 text-foreground focus-visible:ring-primary h-11"
               disabled={isSubmitting || status === 'success'}
               {...register('email')}
             />
             {errors.email && (
-              <p className="text-sm text-red-500">{errors.email.message}</p>
+              <p className="text-sm text-danger font-medium">{errors.email.message}</p>
             )}
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
+        <CardFooter className="flex flex-col space-y-4 pt-4">
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 font-medium text-base"
             disabled={isSubmitting || status === 'success'}
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Send Reset Link
           </Button>
-          <div className="text-center text-sm text-zinc-400">
+          <div className="text-center text-sm text-muted-foreground">
             Remember your password?{' '}
-            <a href="/auth/login" className="text-blue-500 hover:text-blue-400 font-medium">
+            <Link href="/auth/login" className="text-primary hover:text-primary/80 font-medium">
               Sign in
-            </a>
+            </Link>
           </div>
         </CardFooter>
       </form>

@@ -6,31 +6,24 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  SUPER_ADMIN
-  ADMIN
-  MANAGER
-  TRAINER
-  RECEPTIONIST
-  MEMBER
-}
-
 model User {
-  id             String    @id @default(cuid())
-  name           String?
-  email          String    @unique
-  emailVerified  DateTime?
-  hashedPassword String?
-  image          String?
-  role           Role      @default(MEMBER)
-  
-  accounts       Account[]
-  sessions       Session[]
-  passwordResets PasswordResetToken[]
-  auditLogs      AuditLog[]
-
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                String                   @id @default(cuid())
+  name              String?
+  email             String                   @unique
+  emailVerified     DateTime?
+  image             String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  hashedPassword    String?
+  role              Role                     @default(MEMBER)
+  accounts          Account[]
+  auditLogs         AuditLog[]
+  memberProfile     MemberProfile?
+  notifications     Notification[]
+  notificationPrefs NotificationPreference[]
+  passwordResets    PasswordResetToken[]
+  sessions          Session[]
+  staffProfile      StaffProfile?
 }
 
 model Account {
@@ -45,12 +38,10 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
- 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
- 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
- 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@id([provider, providerAccountId])
 }
 
@@ -58,28 +49,27 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
- 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model VerificationToken {
   identifier String
   token      String
   expires    DateTime
- 
+
   @@id([identifier, token])
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   usedAt    DateTime?
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -87,11 +77,1150 @@ model PasswordResetToken {
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   action    String
   details   String?
   ipAddress String?
   createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model Branch {
+  id                 String              @id @default(cuid())
+  name               String
+  code               String              @unique
+  address            String?
+  phone              String?
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  timezone           String              @default("Asia/Kolkata")
+  accessDevices      AccessDevice[]
+  attendances        AttendanceRecord[]
+  billingIntents     BillingIntent[]
+  Coupon             Coupon[]
+  exercises          Exercise[]
+  invoices           Invoice[]
+  leads              Lead[]
+  members            MemberProfile[]
+  memberships        Membership[]
+  membershipPlans    MembershipPlan[]
+  payments           Payment[]
+  receipts           Receipt[]
+  staff              StaffProfile[]
+  trainerAssignments TrainerAssignment[]
+}
+
+model MemberProfile {
+  id                    String                 @id @default(cuid())
+  userId                String                 @unique
+  branchId              String
+  memberNumber          String                 @unique
+  firstName             String
+  lastName              String
+  phone                 String?                @unique
+  rfidCardNumber        String?                @unique
+  dob                   DateTime?
+  gender                String?
+  profileImageUrl       String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  addressLine1          String?
+  addressLine2          String?
+  city                  String?
+  state                 String?
+  zipCode               String?
+  status                MemberAccountStatus    @default(ACTIVE)
+  joinDate              DateTime               @default(now())
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  archivedAt            DateTime?
+  archivedBy            String?
+  attendances           AttendanceRecord[]
+  billingIntents        BillingIntent[]
+  deviceIdentities      DeviceMemberIdentity[]
+  fitnessGoals          FitnessGoal[]
+  invoices              Invoice[]
+  convertedLead         Lead?
+  measurements          Measurement[]
+  branch                Branch                 @relation(fields: [branchId], references: [id])
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memberships           Membership[]
+  linkedMemberships     Membership[]           @relation("LinkedMembership")
+  payments              Payment[]
+  portfolio             Portfolio?
+  progressPhotos        ProgressPhoto[]
+  receipts              Receipt[]
+  trainerAssignments    TrainerAssignment[]
+  workoutPlans          WorkoutPlan[]
+  workoutSessions       WorkoutSession[]
+
+  @@index([memberNumber])
+  @@index([phone])
+  @@index([status])
+  @@index([branchId])
+}
+
+model StaffProfile {
+  id                String          @id @default(cuid())
+  userId            String          @unique
+  branchId          String
+  employeeId        String          @unique
+  firstName         String
+  lastName          String
+  phone             String?         @unique
+  department        StaffDepartment
+  hireDate          DateTime        @default(now())
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  assignedLeads     Lead[]
+  assignedFollowUps LeadFollowUp[]
+  branch            Branch          @relation(fields: [branchId], references: [id])
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trainerProfile    TrainerProfile?
+
+  @@index([employeeId])
+  @@index([branchId])
+}
+
+model TrainerProfile {
+  id              String              @id @default(cuid())
+  staffId         String              @unique
+  specializations String[]
+  bio             String?
+  certifications  String[]
+  experienceYears Int?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  assignments     TrainerAssignment[]
+  staff           StaffProfile        @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  workoutPlans    WorkoutPlan[]
+}
+
+model TrainerAssignment {
+  id         String           @id @default(cuid())
+  memberId   String
+  trainerId  String
+  branchId   String
+  status     AssignmentStatus @default(ACTIVE)
+  assignedAt DateTime         @default(now())
+  endedAt    DateTime?
+  notes      String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  branch     Branch           @relation(fields: [branchId], references: [id])
+  member     MemberProfile    @relation(fields: [memberId], references: [id])
+  trainer    TrainerProfile   @relation(fields: [trainerId], references: [id])
+
+  @@index([memberId])
+  @@index([trainerId])
+  @@index([status])
+}
+
+model Lead {
+  id                     String              @id @default(cuid())
+  firstName              String
+  lastName               String
+  phone                  String
+  phoneNormalized        String
+  email                  String?
+  emailNormalized        String?
+  status                 LeadStatus          @default(NEW)
+  source                 LeadSource          @default(WALK_IN)
+  sourceDetails          String?
+  priority               LeadPriority        @default(MEDIUM)
+  notes                  String?
+  preferredContactMethod String?
+  branchId               String
+  assignedStaffId        String?
+  convertedMemberId      String?             @unique
+  convertedAt            DateTime?
+  convertedBy            String?
+  archivedAt             DateTime?
+  archivedBy             String?
+  archiveReason          String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  assignedStaff          StaffProfile?       @relation(fields: [assignedStaffId], references: [id])
+  branch                 Branch              @relation(fields: [branchId], references: [id])
+  convertedMember        MemberProfile?      @relation(fields: [convertedMemberId], references: [id])
+  followUps              LeadFollowUp[]
+  statusHistory          LeadStatusHistory[]
+
+  @@index([branchId])
+  @@index([status])
+  @@index([phoneNormalized])
+  @@index([emailNormalized])
+  @@index([assignedStaffId])
+}
+
+model LeadStatusHistory {
+  id         String     @id @default(cuid())
+  leadId     String
+  fromStatus LeadStatus
+  toStatus   LeadStatus
+  changedBy  String?
+  reason     String?
+  createdAt  DateTime   @default(now())
+  lead       Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+}
+
+model LeadFollowUp {
+  id              String         @id @default(cuid())
+  leadId          String
+  assignedStaffId String
+  type            FollowUpType
+  status          FollowUpStatus @default(PENDING)
+  scheduledAt     DateTime
+  reminderAt      DateTime?
+  completedAt     DateTime?
+  completedBy     String?
+  cancelledAt     DateTime?
+  cancelledBy     String?
+  notes           String?
+  outcome         String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  assignedStaff   StaffProfile   @relation(fields: [assignedStaffId], references: [id])
+  lead            Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([assignedStaffId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model BusinessActivityLog {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  actorId    String?
+  changes    Json?
+  branchId   String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([branchId])
+}
+
+enum PlanCategory {
+  INDIVIDUAL
+  COUPLE
+}
+
+model MembershipPlan {
+  id           String             @id @default(cuid())
+  branchId     String
+  name         String
+  code         String
+  description  String?
+  durationDays Int
+  price        Decimal            @db.Decimal(10, 2)
+  currency     String             @default("INR")
+  benefits     String[]
+  planType     MembershipPlanType
+  category     PlanCategory       @default(INDIVIDUAL)
+  maxMembers   Int                @default(1)
+  isActive     Boolean            @default(true)
+  displayOrder Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  memberships  Membership[]
+  branch       Branch             @relation(fields: [branchId], references: [id])
+
+  @@unique([branchId, code])
+  @@index([branchId])
+  @@index([isActive])
+}
+
+model Membership {
+  id                   String                    @id @default(cuid())
+  memberId             String
+  planId               String?
+  branchId             String
+  planNameSnapshot     String
+  durationDaysSnapshot Int
+  pricingType          PricingType               @default(PAID)
+  basePrice            Decimal                   @db.Decimal(10, 2)
+  discountAmount       Decimal                   @default(0) @db.Decimal(10, 2)
+  finalAmount          Decimal                   @db.Decimal(10, 2)
+  currency             String                    @default("INR")
+  promotionCode        String?
+  status               MembershipStatus          @default(PENDING_PAYMENT)
+  startDate            DateTime
+  endDate              DateTime
+  notes                String?
+  createdByStaffId     String?
+  createdBySystem      Boolean                   @default(false)
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  previousMembershipId String?
+  linkedMemberId       String?
+  invoices             Invoice[]
+  branch               Branch                    @relation(fields: [branchId], references: [id])
+  member               MemberProfile             @relation(fields: [memberId], references: [id])
+  linkedMember         MemberProfile?            @relation("LinkedMembership", fields: [linkedMemberId], references: [id])
+  plan                 MembershipPlan?           @relation(fields: [planId], references: [id], onDelete: Restrict)
+  previousMembership   Membership?               @relation("MembershipSequence", fields: [previousMembershipId], references: [id], onDelete: Restrict)
+  nextMemberships      Membership[]              @relation("MembershipSequence")
+  freezes              MembershipFreeze[]
+  statusHistory        MembershipStatusHistory[]
+
+  @@index([memberId])
+  @@index([branchId])
+  @@index([status])
+  @@index([endDate])
+}
+
+model MembershipStatusHistory {
+  id               String           @id @default(cuid())
+  membershipId     String
+  fromStatus       MembershipStatus
+  toStatus         MembershipStatus
+  createdByStaffId String?
+  createdBySystem  Boolean          @default(false)
+  reason           String?
+  createdAt        DateTime         @default(now())
+  membership       Membership       @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([membershipId])
+}
+
+model MembershipFreeze {
+  id               String       @id @default(cuid())
+  membershipId     String
+  startDate        DateTime
+  endDate          DateTime
+  days             Int
+  reason           String?
+  status           FreezeStatus @default(ACTIVE)
+  createdByStaffId String?
+  createdBySystem  Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  membership       Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([membershipId])
+  @@index([status])
+}
+
+model SystemSequence {
+  id          String   @id @default(cuid())
+  branchId    String
+  sequenceKey String
+  lastValue   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([branchId, sequenceKey])
+}
+
+model Invoice {
+  id               String                 @id @default(cuid())
+  invoiceNumber    String                 @unique
+  memberId         String
+  branchId         String
+  membershipId     String?
+  status           InvoiceStatus          @default(DRAFT)
+  currency         String                 @default("INR")
+  subtotal         Decimal                @db.Decimal(10, 2)
+  discountAmount   Decimal                @default(0) @db.Decimal(10, 2)
+  taxAmount        Decimal                @default(0) @db.Decimal(10, 2)
+  totalAmount      Decimal                @db.Decimal(10, 2)
+  amountPaid       Decimal                @default(0) @db.Decimal(10, 2)
+  amountDue        Decimal                @db.Decimal(10, 2)
+  issueDate        DateTime?
+  dueDate          DateTime?
+  notes            String?
+  createdByStaffId String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  couponId         String?
+  billingIntents   BillingIntent[]
+  branch           Branch                 @relation(fields: [branchId], references: [id])
+  Coupon           Coupon?                @relation(fields: [couponId], references: [id])
+  member           MemberProfile          @relation(fields: [memberId], references: [id])
+  membership       Membership?            @relation(fields: [membershipId], references: [id])
+  items            InvoiceItem[]
+  statusHistory    InvoiceStatusHistory[]
+  allocations      PaymentAllocation[]
+
+  @@index([memberId])
+  @@index([branchId])
+  @@index([membershipId])
+  @@index([status])
+  @@index([issueDate])
+  @@index([dueDate])
+  @@index([invoiceNumber])
+}
+
+model InvoiceItem {
+  id             String   @id @default(cuid())
+  invoiceId      String
+  description    String
+  quantity       Int      @default(1)
+  unitPrice      Decimal  @db.Decimal(10, 2)
+  discountAmount Decimal  @default(0) @db.Decimal(10, 2)
+  taxRate        Decimal  @default(0) @db.Decimal(5, 2)
+  taxAmount      Decimal  @default(0) @db.Decimal(10, 2)
+  lineTotal      Decimal  @db.Decimal(10, 2)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model BillingIntent {
+  id               String              @id @default(cuid())
+  invoiceId        String?
+  memberId         String
+  branchId         String
+  amount           Decimal             @db.Decimal(10, 2)
+  currency         String              @default("INR")
+  status           BillingIntentStatus @default(CREATED)
+  idempotencyKey   String              @unique
+  expiresAt        DateTime?
+  createdByStaffId String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  branch           Branch              @relation(fields: [branchId], references: [id])
+  invoice          Invoice?            @relation(fields: [invoiceId], references: [id])
+  member           MemberProfile       @relation(fields: [memberId], references: [id])
+  payments         Payment[]
+
+  @@index([invoiceId])
+  @@index([idempotencyKey])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model Payment {
+  id                String              @id @default(cuid())
+  memberId          String
+  branchId          String
+  billingIntentId   String?
+  amount            Decimal             @db.Decimal(10, 2)
+  currency          String              @default("INR")
+  paymentMethod     PaymentMethod
+  status            PaymentStatus       @default(PENDING)
+  provider             String?
+  externalReference    String?
+  externalReferenceHash String?
+  receivedAt           DateTime            @default(now())
+  recordedByStaffId String?
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  billingIntent     BillingIntent?      @relation(fields: [billingIntentId], references: [id])
+  branch            Branch              @relation(fields: [branchId], references: [id])
+  member            MemberProfile       @relation(fields: [memberId], references: [id])
+  allocations       PaymentAllocation[]
+  refunds           PaymentRefund[]
+  receipts          Receipt[]
+
+  @@unique([provider, externalReferenceHash])
+  @@index([memberId])
+  @@index([branchId])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([externalReference])
+}
+
+model PaymentAllocation {
+  id        String   @id @default(cuid())
+  paymentId String
+  invoiceId String
+  amount    Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([invoiceId])
+}
+
+model Receipt {
+  id              String        @id @default(cuid())
+  receiptNumber   String        @unique
+  paymentId       String
+  memberId        String
+  branchId        String
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("INR")
+  issuedAt        DateTime      @default(now())
+  issuedByStaffId String?
+  snapshotData    Json?
+  createdAt       DateTime      @default(now())
+  branch          Branch        @relation(fields: [branchId], references: [id])
+  member          MemberProfile @relation(fields: [memberId], references: [id])
+  payment         Payment       @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([receiptNumber])
+  @@index([memberId])
+  @@index([branchId])
+}
+
+model PaymentRefund {
+  id                 String        @id @default(cuid())
+  paymentId          String
+  amount             Decimal       @db.Decimal(10, 2)
+  reason             String?
+  status             PaymentStatus @default(PENDING)
+  provider           String?
+  externalReference  String?
+  processedByStaffId String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  payment            Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+}
+
+model InvoiceStatusHistory {
+  id               String        @id @default(cuid())
+  invoiceId        String
+  fromStatus       InvoiceStatus
+  toStatus         InvoiceStatus
+  createdByStaffId String?
+  createdBySystem  Boolean       @default(false)
+  reason           String?
+  createdAt        DateTime      @default(now())
+  invoice          Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model AccessDevice {
+  id             String                 @id @default(cuid())
+  name           String
+  deviceType     String
+  manufacturer   String
+  model          String
+  serialNumber   String?
+  branchId       String
+  ipAddress      String?
+  port           Int?
+  connectionMode ConnectionMode         @default(UNKNOWN)
+  isActive       Boolean                @default(true)
+  lastSeenAt     DateTime?
+  lastSyncAt     DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  branch         Branch                 @relation(fields: [branchId], references: [id])
+  attendances    AttendanceRecord[]
+  events         DeviceAccessEvent[]
+  identities     DeviceMemberIdentity[]
+  commands       DeviceCommandQueue[]
+  admsSecret     String?
+
+  @@index([branchId])
+}
+
+model DeviceMemberIdentity {
+  id                String        @id @default(cuid())
+  memberId          String
+  deviceId          String
+  externalUserId    String
+  desiredEnabled    Boolean       @default(false)
+  actualEnabled     Boolean       @default(false)
+  syncStatus        SyncStatus    @default(PENDING)
+  lastSyncAttemptAt DateTime?
+  lastSyncedAt      DateTime?
+  lastSyncError     String?
+  enrolledAt        DateTime?
+  disabledAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  device            AccessDevice  @relation(fields: [deviceId], references: [id])
+  member            MemberProfile @relation(fields: [memberId], references: [id])
+
+  @@unique([deviceId, externalUserId])
+  @@unique([deviceId, memberId])
+  @@index([memberId])
+  @@index([deviceId])
+}
+
+model DeviceAccessEvent {
+  id                     String           @id @default(cuid())
+  deviceId               String
+  externalEventId        String
+  externalUserId         String
+  eventTimestamp         DateTime
+  serverReceiptTimestamp DateTime         @default(now())
+  eventType              String?
+  rawPayload             Json
+  processingStatus       ProcessingStatus @default(UNPROCESSED)
+  processedAt            DateTime?
+  createdAt              DateTime         @default(now())
+  device                 AccessDevice     @relation(fields: [deviceId], references: [id])
+
+  @@unique([deviceId, externalEventId])
+  @@index([deviceId, processingStatus])
+}
+
+model AttendanceRecord {
+  id             String           @id @default(cuid())
+  memberId       String
+  branchId       String
+  deviceId       String?
+  checkInTime    DateTime
+  checkOutTime   DateTime?
+  method         AttendanceMethod @default(BIOMETRIC)
+  sourceEventId  String?
+  accessDecision AccessDecision
+  denialReason   String?
+  createdAt      DateTime         @default(now())
+  branch         Branch           @relation(fields: [branchId], references: [id])
+  device         AccessDevice?    @relation(fields: [deviceId], references: [id])
+  member         MemberProfile    @relation(fields: [memberId], references: [id])
+
+  @@index([memberId])
+  @@index([branchId, checkInTime])
+  @@index([deviceId])
+}
+
+model FitnessGoal {
+  id          String        @id @default(cuid())
+  memberId    String
+  title       String
+  description String?
+  goalType    GoalType      @default(GENERAL_FITNESS)
+  targetValue Decimal?
+  targetUnit  String?
+  targetDate  DateTime?
+  status      GoalStatus    @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  completedAt DateTime?
+  member      MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, status])
+}
+
+model Exercise {
+  id            String            @id @default(cuid())
+  ownershipType ExerciseOwnership @default(GLOBAL)
+  branchId      String?
+  name          String
+  slug          String            @unique
+  description   String?
+  muscleGroups  String[]
+  equipment     String[]
+  difficulty    String?
+  instructions  String?
+  videoUrl      String?
+  imageUrl      String?
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  branch        Branch?           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId])
+}
+
+model WorkoutPlan {
+  id          String            @id @default(cuid())
+  memberId    String
+  trainerId   String
+  name        String
+  description String?
+  goal        String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      WorkoutPlanStatus @default(DRAFT)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  days        WorkoutDay[]
+  member      MemberProfile     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer     TrainerProfile    @relation(fields: [trainerId], references: [id])
+  sessions    WorkoutSession[]
+
+  @@index([memberId, status])
+  @@index([trainerId, status])
+}
+
+model WorkoutDay {
+  id            String            @id @default(cuid())
+  workoutPlanId String
+  name          String
+  dayNumber     Int
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  workoutPlan   WorkoutPlan       @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  exercises     WorkoutExercise[]
+
+  @@index([workoutPlanId])
+}
+
+model WorkoutExercise {
+  id                    String       @id @default(cuid())
+  workoutDayId          String
+  exerciseId            String
+  orderIndex            Int
+  exerciseType          ExerciseType @default(STRENGTH)
+  sets                  Int?
+  reps                  Int?
+  targetWeight          Decimal?
+  targetDurationSeconds Int?
+  restSeconds           Int?
+  tempo                 String?
+  notes                 String?
+  workoutDay            WorkoutDay   @relation(fields: [workoutDayId], references: [id], onDelete: Cascade)
+
+  @@index([workoutDayId, orderIndex])
+}
+
+model WorkoutSession {
+  id               String                   @id @default(cuid())
+  memberId         String
+  workoutPlanId    String?
+  workoutDayId     String?
+  startedAt        DateTime                 @default(now())
+  completedAt      DateTime?
+  status           WorkoutSessionStatus     @default(STARTED)
+  trainerNotes     String?
+  memberNotes      String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  member           MemberProfile            @relation(fields: [memberId], references: [id])
+  workoutPlan      WorkoutPlan?             @relation(fields: [workoutPlanId], references: [id])
+  sessionExercises WorkoutSessionExercise[]
+
+  @@index([memberId, startedAt])
+  @@index([workoutPlanId, startedAt])
+}
+
+model WorkoutSessionExercise {
+  id                      String         @id @default(cuid())
+  workoutSessionId        String
+  sourceWorkoutExerciseId String?
+  exerciseId              String?
+  exerciseNameSnapshot    String
+  orderIndex              Int
+  exerciseTypeSnapshot    ExerciseType   @default(STRENGTH)
+  targetSetsSnapshot      Int?
+  targetRepsSnapshot      Int?
+  targetWeightSnapshot    Decimal?
+  targetDurationSnapshot  Int?
+  restSecondsSnapshot     Int?
+  tempoSnapshot           String?
+  notesSnapshot           String?
+  createdAt               DateTime       @default(now())
+  workoutSession          WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  sets                    WorkoutSet[]
+
+  @@index([workoutSessionId, orderIndex])
+}
+
+model WorkoutSet {
+  id                       String                 @id @default(cuid())
+  workoutSessionExerciseId String
+  setNumber                Int
+  repsCompleted            Int?
+  weightUsed               Decimal?
+  durationSeconds          Int?
+  distance                 Decimal?
+  rpe                      Int?
+  completed                Boolean                @default(false)
+  notes                    String?
+  createdAt                DateTime               @default(now())
+  workoutSessionExercise   WorkoutSessionExercise @relation(fields: [workoutSessionExerciseId], references: [id], onDelete: Cascade)
+
+  @@index([workoutSessionExerciseId, setNumber])
+}
+
+model Measurement {
+  id                String        @id @default(cuid())
+  memberId          String
+  recordedBy        String?
+  recordedAt        DateTime      @default(now())
+  weight            Decimal?
+  weightUnit        String        @default("KG")
+  bodyFatPercentage Decimal?
+  bmi               Decimal?
+  chest             Decimal?
+  waist             Decimal?
+  hips              Decimal?
+  leftArm           Decimal?
+  rightArm          Decimal?
+  leftThigh         Decimal?
+  rightThigh        Decimal?
+  lengthUnit        String        @default("CM")
+  notes             String?
+  createdAt         DateTime      @default(now())
+  member            MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, recordedAt])
+}
+
+model ProgressPhoto {
+  id               String             @id @default(cuid())
+  memberId         String
+  uploadedBy       String
+  photoUrl         String?
+  storageKey       String
+  photoType        PhotoType          @default(FRONT)
+  capturedAt       DateTime           @default(now())
+  visibility       VisibilityLevel    @default(PRIVATE)
+  notes            String?
+  createdAt        DateTime           @default(now())
+  portfolioContent PortfolioContent[]
+  member           MemberProfile      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, capturedAt])
+}
+
+model Portfolio {
+  id             String             @id @default(cuid())
+  memberId       String             @unique
+  headline       String?
+  bio            String?
+  customUrlAlias String?            @unique
+  isPublished    Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  member         MemberProfile      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  content        PortfolioContent[]
+
+  @@index([memberId])
+}
+
+model PortfolioContent {
+  id              String         @id @default(cuid())
+  portfolioId     String
+  progressPhotoId String?
+  orderIndex      Int            @default(0)
+  createdAt       DateTime       @default(now())
+  portfolio       Portfolio      @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  progressPhoto   ProgressPhoto? @relation(fields: [progressPhotoId], references: [id], onDelete: Cascade)
+
+  @@index([portfolioId])
+}
+
+model Notification {
+  id        String               @id @default(cuid())
+  userId    String
+  category  NotificationCategory
+  title     String
+  message   String
+  isRead    Boolean              @default(false)
+  actionUrl String?
+  metadata  Json?
+  createdAt DateTime             @default(now())
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id        String               @id @default(cuid())
+  userId    String
+  category  NotificationCategory
+  channel   NotificationChannel
+  isEnabled Boolean              @default(true)
+  updatedAt DateTime             @updatedAt
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, channel])
+  @@index([userId])
+}
+
+model Coupon {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  discountType  DiscountType
+  discountValue Decimal      @db.Decimal(10, 2)
+  maxUses       Int?
+  currentUses   Int          @default(0)
+  validFrom     DateTime?
+  validUntil    DateTime?
+  isActive      Boolean      @default(true)
+  branchId      String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  Branch        Branch       @relation(fields: [branchId], references: [id])
+  Invoice       Invoice[]
+
+  @@index([branchId])
+  @@index([code])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  TRAINER
+  RECEPTIONIST
+  MEMBER
+}
+
+enum MemberAccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum StaffDepartment {
+  MANAGEMENT
+  SALES
+  RECEPTION
+  FITNESS
+  MAINTENANCE
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  TRIAL
+  NEGOTIATION
+  CONVERTED
+  LOST
+}
+
+enum LeadSource {
+  WALK_IN
+  WEBSITE
+  REFERRAL
+  META_ADS
+  OTHER
+}
+
+enum LeadPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum FollowUpType {
+  CALL
+  WHATSAPP
+  EMAIL
+  VISIT
+  TRIAL
+  OTHER
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  MISSED
+  CANCELLED
+}
+
+enum MembershipPlanType {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  TRIAL
+  CUSTOM
+}
+
+enum PricingType {
+  PAID
+  COMPLIMENTARY
+  TRIAL
+  PROMOTIONAL
+}
+
+enum MembershipStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  FROZEN
+  EXPIRED
+  CANCELLED
+}
+
+enum FreezeStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum BillingIntentStatus {
+  CREATED
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  ONLINE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  VOID
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum ConnectionMode {
+  MOCK
+  LOCAL_NETWORK
+  PUSH
+  PULL
+  UNKNOWN
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  RETRYING
+}
+
+enum ProcessingStatus {
+  UNPROCESSED
+  PROCESSED
+  ERROR
+}
+
+enum AttendanceMethod {
+  BIOMETRIC
+  QR
+  RFID
+  MANUAL
+  OTHER
+}
+
+enum AccessDecision {
+  ALLOWED
+  DENIED
+}
+
+enum GoalType {
+  WEIGHT_LOSS
+  MUSCLE_GAIN
+  STRENGTH
+  ENDURANCE
+  BODY_RECOMPOSITION
+  FLEXIBILITY
+  GENERAL_FITNESS
+  CUSTOM
+}
+
+enum GoalStatus {
+  ACTIVE
+  ACHIEVED
+  PAUSED
+  CANCELLED
+}
+
+enum ExerciseOwnership {
+  GLOBAL
+  BRANCH
+}
+
+enum WorkoutPlanStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum ExerciseType {
+  STRENGTH
+  REPETITION
+  DURATION
+  DISTANCE
+  BODYWEIGHT
+  CUSTOM
+}
+
+enum WorkoutSessionStatus {
+  STARTED
+  COMPLETED
+  ABANDONED
+}
+
+enum PhotoType {
+  FRONT
+  BACK
+  LEFT
+  RIGHT
+  OTHER
+}
+
+enum VisibilityLevel {
+  PRIVATE
+  TRAINER_ONLY
+  MEMBER_ONLY
+  PORTFOLIO
+}
+
+enum NotificationCategory {
+  MEMBERSHIP_EXPIRING
+  MEMBERSHIP_EXPIRED
+  WORKOUT_ASSIGNED
+  WORKOUT_REMINDER
+  GOAL_UPDATE
+  ATTENDANCE_CONFIRMATION
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+model DeviceCommandQueue {
+  id       String       @id @default(cuid())
+  deviceId String
+  device   AccessDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  command String
+  status  SyncStatus @default(PENDING)
+
+  createdAt    DateTime  @default(now())
+  executedAt   DateTime?
+  errorMessage String?
+
+  @@index([deviceId, status])
 }

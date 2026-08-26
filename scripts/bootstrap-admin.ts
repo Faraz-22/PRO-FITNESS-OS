@@ -33,6 +33,17 @@ async function bootstrapAdmin() {
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    let branch = await prisma.branch.findUnique({ where: { code: 'MAIN' } });
+    if (!branch) {
+      branch = await prisma.branch.create({
+        data: {
+          name: 'Main Branch',
+          code: 'MAIN',
+        },
+      });
+      console.log('Created default Main Branch.');
+    }
+
     const admin = await prisma.user.create({
       data: {
         name: 'Super Admin',
@@ -40,6 +51,15 @@ async function bootstrapAdmin() {
         hashedPassword,
         role: Role.SUPER_ADMIN,
         emailVerified: new Date(),
+        staffProfile: {
+          create: {
+            employeeId: 'ADM-001',
+            firstName: 'Super',
+            lastName: 'Admin',
+            department: 'MANAGEMENT',
+            branchId: branch.id,
+          }
+        }
       },
     });
 

@@ -1,0 +1,387 @@
+openapi: 3.0.3
+info:
+  title: PRO FITNESS OS API
+  version: 1.0.0
+  description: Secure API for mobile applications and integrations for PRO FITNESS OS.
+servers:
+  - url: /api/v1
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+    deviceAuth:
+      type: http
+      scheme: bearer
+      description: Static device token used for biometric webhooks
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+        requestId:
+          type: string
+    PaginatedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            type: object
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
+            hasNextPage:
+              type: boolean
+paths:
+  /me:
+    get:
+      summary: Get current member profile
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+    patch:
+      summary: Update member profile
+      security:
+        - cookieAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+      responses:
+        '200':
+          description: OK
+  /me/membership:
+    get:
+      summary: Get active membership
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/membership/history:
+    get:
+      summary: Get membership history
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/attendance:
+    get:
+      summary: Get attendance history
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/attendance/today:
+    get:
+      summary: Get today's attendance
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/goals:
+    get:
+      summary: Get fitness goals
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create fitness goal
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/goals/{goalId}/complete:
+    post:
+      summary: Mark goal complete
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: goalId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /me/measurements:
+    get:
+      summary: Get body measurements
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Record measurement
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/notifications:
+    get:
+      summary: Get notifications
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/progress:
+    get:
+      summary: Get progress overview
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/progress/photos:
+    get:
+      summary: Get progress photos
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/workouts:
+    get:
+      summary: Get workout history
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /me/workouts/{sessionId}:
+    get:
+      summary: Get workout session details
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /me/workouts/{sessionId}/start:
+    post:
+      summary: Start a workout session
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /me/workouts/{sessionId}/complete:
+    post:
+      summary: Complete a workout session
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /me/workouts/{sessionId}/sets:
+    post:
+      summary: Record an exercise set
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /trainer/members:
+    get:
+      summary: Get assigned members
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+  /trainer/members/{memberId}:
+    get:
+      summary: Get member details
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /trainer/members/{memberId}/goals:
+    get:
+      summary: Get member goals
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /trainer/members/{memberId}/measurements:
+    get:
+      summary: Get member measurements
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /trainer/members/{memberId}/workouts:
+    get:
+      summary: Get member workouts
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /trainer/members/{memberId}/workout-plans:
+    get:
+      summary: Get member workout plans
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create member workout plan
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /trainer/workout-plans/{id}:
+    patch:
+      summary: Update workout plan
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /devices/{deviceId}/events:
+    post:
+      summary: Ingest device access event
+      description: Webhook for MB20 access control ingestion. Idempotent by eventId.
+      security:
+        - deviceAuth: []
+      parameters:
+        - in: path
+          name: deviceId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eventId:
+                  type: string
+                memberIdentity:
+                  type: string
+                timestamp:
+                  type: string
+                  format: date-time
+                accessType:
+                  type: string
+                  enum: [IN, OUT, UNKNOWN]
+      responses:
+        '202':
+          description: Accepted
+        '401':
+          description: Unauthorized
+        '429':
+          description: Too Many Requests

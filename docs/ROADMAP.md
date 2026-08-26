@@ -1,12 +1,12 @@
 # PRO FITNESS OS — Development Roadmap
 
-> **Version**: 0.1.0
-> **Last Updated**: 2026-08-11
-> **Status**: Planning
+> **Version**: 0.2.0
+> **Last Updated**: 2026-08-20
+> **Status**: Development
 
 ---
 
-## Phase 0: Architecture & Project Initialization ← CURRENT
+## Phase 0: Architecture & Project Initialization
 
 **Duration**: 1 sprint (1 week)
 **Goal**: Establish the project foundation, tooling, and development environment.
@@ -16,19 +16,19 @@
 - [x] Repository audit
 - [x] Architecture documents (ARCHITECTURE.md, DATABASE.md, ROADMAP.md, SECURITY.md, INTEGRATIONS.md)
 - [x] AGENTS.md for AI coding agents
-- [ ] Next.js project initialization with TypeScript
-- [ ] Tailwind CSS 4 + design system tokens (black-gold theme)
-- [ ] shadcn/ui initialization
-- [ ] Prisma setup with PostgreSQL connection
+- [x] Next.js project initialization with TypeScript
+- [x] Tailwind CSS 4 + design system tokens (black-gold theme)
+- [x] shadcn/ui initialization
+- [x] Prisma setup with PostgreSQL connection
 - [ ] Docker Compose for local PostgreSQL + Redis
-- [ ] ESLint + Prettier configuration
-- [ ] Auth.js v5 installation and skeleton config
-- [ ] Basic folder structure creation
-- [ ] `.env.example` with all required variables
-- [ ] `.gitignore`
-- [ ] `README.md`
-- [ ] Initial `prisma/schema.prisma` with User model only
-- [ ] First migration
+- [x] ESLint + Prettier configuration
+- [x] Auth.js v5 installation and skeleton config
+- [x] Basic folder structure creation
+- [x] `.env.example` with all required variables
+- [x] `.gitignore`
+- [x] `README.md`
+- [x] Initial `prisma/schema.prisma`
+- [x] First migration
 - [ ] CI pipeline (GitHub Actions: lint + typecheck + build)
 - [ ] Vercel project connection (manual step)
 
@@ -50,26 +50,26 @@
 
 ### Sprint 1.1: Authentication
 
-- [ ] Database schema: User, Account, Session, VerificationToken
-- [ ] Auth.js configuration with Credentials provider
+- [x] Database schema: User, Account, Session, VerificationToken
+- [x] Auth.js configuration with Credentials provider
 - [ ] Registration flow (email + password)
-- [ ] Login flow
+- [x] Login flow
 - [ ] Email verification flow
 - [ ] Password reset flow
-- [ ] Auth middleware for protected routes
-- [ ] Login and register pages (styled)
-- [ ] Session management
+- [x] Auth middleware for protected routes
+- [x] Login and register pages (styled)
+- [x] Session management
 
 ### Sprint 1.2: Core Models & RBAC
 
-- [ ] Database schema: Role, Permission, UserRole
-- [ ] RBAC service with permission checks
-- [ ] Member, Staff, Trainer profile models
-- [ ] MembershipPlan, Membership models
-- [ ] Server-side authorization helpers
-- [ ] Middleware route protection by role
+- [x] Database schema: Role, Permission, UserRole
+- [x] RBAC service with permission checks
+- [x] Member, Staff, Trainer profile models
+- [x] MembershipPlan, Membership models
+- [x] Server-side authorization helpers
+- [x] Middleware route protection by role
 - [ ] Super Admin seed script
-- [ ] Basic dashboard layout (sidebar, topbar, mobile nav)
+- [x] Basic dashboard layout (sidebar, topbar, mobile nav)
 
 ### Exit Criteria
 
@@ -91,15 +91,15 @@
 - [ ] Add new member form
 - [ ] Edit member profile
 - [ ] View member details
-- [ ] Member status (Active, Inactive, Suspended)
+- [x] Member status (Active, Inactive, Suspended)
 - [ ] Soft delete member
-- [ ] Audit logging for member operations
+- [x] Audit logging for member operations
 
 ### Sprint 2.2: Membership Management
 
-- [ ] MembershipPlan CRUD (name, duration, price, features)
+- [x] MembershipPlan CRUD (name, duration, price, features) (Schema & Actions)
 - [ ] Assign membership to member
-- [ ] Membership status tracking (Active, Expired, Cancelled)
+- [x] Membership status tracking (Active, Expired, Cancelled)
 - [ ] Expiry alerts and dashboards
 - [ ] Membership renewal flow
 - [ ] Membership history
@@ -121,17 +121,17 @@
 
 ### Sprint 3.1: Lead Management
 
-- [ ] Lead model (name, phone, email, source, status, notes)
-- [ ] Lead pipeline view (New → Contacted → Interested → Converted → Lost)
+- [x] Lead model (name, phone, email, source, status, notes)
+- [x] Lead pipeline view (New → Contacted → Interested → Converted → Lost) (Schema & Actions)
 - [ ] Add lead from admin
 - [ ] Public website contact form → creates lead
-- [ ] Follow-up scheduling and tracking
-- [ ] Lead → Member conversion flow
+- [x] Follow-up scheduling and tracking (Schema)
+- [x] Lead → Member conversion flow (Schema)
 - [ ] Lead analytics (source breakdown, conversion rate)
 
 ### Sprint 3.2: Attendance Management
 
-- [ ] Attendance model (memberId, checkInAt, checkOutAt, method)
+- [x] Attendance model (memberId, checkInAt, checkOutAt, method)
 - [ ] Admin attendance view (daily, weekly, monthly)
 - [ ] Manual check-in by receptionist
 - [ ] QR code check-in flow
@@ -155,17 +155,17 @@
 
 ### Sprint 4.1: Payment Management
 
-- [ ] Payment model and service
-- [ ] Record cash/offline payment
+- [x] Payment model and service
+- [x] Record cash/offline payment (Schema & Actions)
 - [ ] Razorpay integration for online payments
 - [ ] Payment webhook handler
-- [ ] Payment history per member
+- [x] Payment history per member (Schema)
 - [ ] Payment reports (daily, monthly revenue)
 - [ ] Refund flow
 
 ### Sprint 4.2: Invoicing & Receipts
 
-- [ ] Invoice model with auto-generated invoice numbers
+- [x] Invoice model with auto-generated invoice numbers
 - [ ] Invoice generation on payment completion
 - [ ] Invoice PDF generation
 - [ ] Digital receipt view in member portal
@@ -193,19 +193,19 @@
 - [ ] Staff directory in admin
 - [ ] Invite staff member (email invite → registration)
 - [ ] Assign role to staff
-- [ ] Trainer profile management
-- [ ] Trainer-member assignment
+- [x] Trainer profile management (Schema)
+- [x] Trainer-member assignment (Schema)
 - [ ] Trainer dashboard (assigned members, schedules)
 - [ ] Staff schedule management
 
 ### Sprint 5.2: Workout Management
 
-- [ ] Exercise library (name, category, muscle group, description, media)
-- [ ] WorkoutPlan model (name, trainer, targetGoal)
-- [ ] Workout model (day, exercises, sets, reps, rest)
-- [ ] Assign workout plan to member
+- [x] Exercise library (name, category, muscle group, description, media) (Schema & Actions)
+- [x] WorkoutPlan model (name, trainer, targetGoal)
+- [x] Workout model (day, exercises, sets, reps, rest)
+- [x] Assign workout plan to member
 - [ ] Member views assigned plan
-- [ ] Workout logging by member
+- [x] Workout logging by member (Schema & Actions)
 - [ ] Trainer reviews workout logs
 
 ### Exit Criteria
@@ -216,27 +216,27 @@
 
 ---
 
-## Phase 6: Member Portal & Progress Tracking
+## Phase 6: Member Portal & Progress Tracking ← CURRENT
 
 **Duration**: 2 sprints (2 weeks)
 **Goal**: Member-facing dashboard with progress tracking.
 
 ### Sprint 6.1: Member Dashboard
 
-- [ ] Member Arena (daily hub)
-- [ ] Club Pass (membership info, attendance)
+- [x] Member Arena (daily hub)
+- [x] Club Pass (membership info, attendance)
 - [ ] Profile page
 - [ ] Account settings
 - [ ] Notification center
-- [ ] Mobile-responsive dashboard
+- [x] Mobile-responsive dashboard
 
 ### Sprint 6.2: Progress & Measurements
 
-- [ ] Measurement model (weight, height, bodyFat, chest, waist, etc.)
-- [ ] Measurement logging
-- [ ] Progress photo upload (private)
-- [ ] Goal setting and tracking
-- [ ] Progress charts and timeline
+- [x] Measurement model (weight, height, bodyFat, chest, waist, etc.)
+- [x] Measurement logging (Schema & Actions)
+- [x] Progress photo upload (private) (Schema)
+- [x] Goal setting and tracking (Schema & Actions)
+- [x] Progress charts and timeline (Dashboard Scaffold)
 - [ ] Transformation milestones
 
 ### Exit Criteria
@@ -296,7 +296,7 @@
 - [ ] Email notifications (via BullMQ queue)
 - [ ] Notification preferences
 - [ ] Announcement system (admin → all members)
-- [ ] Audit log model and service
+- [x] Audit log model and service
 - [ ] Audit log viewer in admin
 - [ ] Filter/search audit logs
 
