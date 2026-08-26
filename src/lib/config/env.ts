@@ -4,8 +4,8 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid PostgreSQL connection string'),
   NEXTAUTH_SECRET: z.string().min(16, 'NEXTAUTH_SECRET must be at least 16 characters long'),
-  NEXTAUTH_URL: z.string().url('NEXTAUTH_URL must be a valid URL').optional(),
-  NEXT_PUBLIC_APP_URL: z.string().url('NEXT_PUBLIC_APP_URL must be a valid URL').optional(),
+  NEXTAUTH_URL: z.string().url('NEXTAUTH_URL must be a valid URL').optional().or(z.literal('')),
+  NEXT_PUBLIC_APP_URL: z.string().url('NEXT_PUBLIC_APP_URL must be a valid URL').optional().or(z.literal('')),
 }).refine(data => {
   if (data.NODE_ENV === 'production' && !process.env.VERCEL) {
     return !!data.NEXTAUTH_URL && !!data.NEXT_PUBLIC_APP_URL;
