@@ -59,10 +59,25 @@ export default async function SetupPage() {
       },
     });
 
+    let branch = await prisma.branch.findFirst({ where: { code: 'MAIN' } });
+    if (!branch) {
+      branch = await prisma.branch.create({
+        data: {
+          name: 'Main Branch',
+          code: 'MAIN',
+          timezone: 'Asia/Kolkata',
+        }
+      });
+    }
+
     await prisma.staffProfile.create({
       data: {
         userId: user.id,
-        role: 'SUPER_ADMIN',
+        branchId: branch.id,
+        employeeId: 'ADM001',
+        firstName: name.split(' ')[0] || 'Admin',
+        lastName: name.split(' ').slice(1).join(' ') || '',
+        department: 'MANAGEMENT',
       },
     });
 
