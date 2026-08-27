@@ -58,8 +58,8 @@ export default function LoginPage() {
   return (
     <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-2xl">
       <CardHeader className="space-y-2 text-center pb-8">
-        <div className="mx-auto w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mb-2">
-          <div className="w-6 h-6 border-2 border-primary rounded-sm transform rotate-45"></div>
+        <div className="mx-auto w-24 h-24 relative mb-4 rounded-full overflow-hidden border-2 border-primary/20 shadow-md">
+          <img src="/gym-logo.jpg" alt="Pro Fitness Logo" className="object-cover w-full h-full" />
         </div>
         <CardTitle className="text-3xl font-bold tracking-tight text-foreground">Welcome Back</CardTitle>
         <CardDescription className="text-muted-foreground">

@@ -50,8 +50,8 @@ export const Sidebar = ({ branchName = "Main Branch" }: SidebarProps) => {
       <div className="px-3 py-2 flex-1">
         <div className="mb-10 pl-3">
           <Link href="/staff/dashboard" className="flex items-center">
-            <div className="relative w-8 h-8 mr-3 flex items-center justify-center bg-primary rounded-md">
-              <Dumbbell className="text-primary-foreground w-5 h-5" />
+            <div className="relative w-10 h-10 mr-3 flex items-center justify-center rounded-md overflow-hidden">
+              <img src="/gym-logo.jpg" alt="Pro Fitness Logo" className="object-cover w-full h-full" />
             </div>
             <h1 className="text-xl font-bold tracking-widest text-primary">PRO FITNESS</h1>
           </Link>
