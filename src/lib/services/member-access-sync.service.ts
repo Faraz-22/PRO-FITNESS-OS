@@ -6,6 +6,9 @@ export class MemberAccessSyncService {
    * Queues an access sync for a member across all devices in a branch.
    */
   static async queueMemberAccessSync(memberId: string, branchId: string, isEnabled: boolean): Promise<void> {
+    const member = await prisma.memberProfile.findUnique({ where: { id: memberId } });
+    if (!member) return;
+
     const devices = await prisma.accessDevice.findMany({
       where: { branchId, isActive: true }
     });
@@ -20,7 +23,7 @@ export class MemberAccessSyncService {
         create: {
           deviceId: device.id,
           memberId,
-          externalUserId: memberId.slice(-6), // Simple PIN generation strategy
+          externalUserId: member.memberNumber, // Use actual Member Number for device PIN
           desiredEnabled: isEnabled,
           syncStatus: 'PENDING'
         }

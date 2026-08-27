@@ -392,10 +392,14 @@ export async function approvePaymentAction(paymentId: string) {
 
         // Activate membership when payment is approved, even if partially paid (first installment)
         if (invoice.membershipId) {
-           await tx.membership.update({
+           const membership = await tx.membership.update({
              where: { id: invoice.membershipId },
              data: { status: 'ACTIVE' }
            });
+           
+           // Grant physical access
+           const { MemberAccessSyncService } = await import('@/lib/services/member-access-sync.service');
+           await MemberAccessSyncService.queueMemberAccessSync(membership.memberId, membership.branchId, true);
         }
       }
     });
