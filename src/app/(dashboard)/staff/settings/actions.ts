@@ -141,7 +141,7 @@ export async function resetTestDataAction() {
         role: { notIn: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }
       }
     }),
-  ]);
+  ], { timeout: 30000 });
 
   return { success: true };
 }

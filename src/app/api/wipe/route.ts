@@ -57,7 +57,7 @@ export async function GET() {
           role: { notIn: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }
         }
       }),
-    ]);
+    ], { timeout: 30000 });
     return NextResponse.json({ success: true, message: 'Wiped!' });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message, stack: error.stack });
