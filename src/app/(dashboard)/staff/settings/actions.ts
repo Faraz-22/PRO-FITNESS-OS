@@ -116,17 +116,16 @@ export async function resetTestDataAction() {
     prisma.leadStatusHistory.deleteMany({}),
     prisma.lead.deleteMany({}),
     prisma.memberProfile.deleteMany({}),
+    prisma.notification.deleteMany({}),
+    prisma.auditLog.deleteMany({}),
+    prisma.businessActivityLog.deleteMany({}),
     
-    // Also delete any users that are just standard members or basic staff (leave super admin/manager)
+    // Delete users last to avoid foreign key constraint errors (e.g., AuditLog pointing to User)
     prisma.user.deleteMany({
       where: {
         role: { notIn: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }
       }
     }),
-    
-    prisma.notification.deleteMany({}),
-    prisma.auditLog.deleteMany({}),
-    prisma.businessActivityLog.deleteMany({}),
   ]);
 
   return { success: true };
