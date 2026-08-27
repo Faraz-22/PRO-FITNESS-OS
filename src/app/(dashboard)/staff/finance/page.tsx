@@ -16,16 +16,18 @@ import { Input } from '@/components/ui/input';
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined }
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  const resolvedSearchParams = await searchParams;
+  
   const session = await auth();
   if (!session?.user) redirect('/auth/login');
 
   const staff = await prisma.staffProfile.findUnique({ where: { userId: session.user.id } });
   const branchId = staff?.branchId;
 
-  const fromParam = typeof searchParams.from === 'string' ? searchParams.from : undefined;
-  const toParam = typeof searchParams.to === 'string' ? searchParams.to : undefined;
+  const fromParam = typeof resolvedSearchParams.from === 'string' ? resolvedSearchParams.from : undefined;
+  const toParam = typeof resolvedSearchParams.to === 'string' ? resolvedSearchParams.to : undefined;
 
   let startDate: Date | undefined = undefined;
   let endDate: Date | undefined = undefined;
