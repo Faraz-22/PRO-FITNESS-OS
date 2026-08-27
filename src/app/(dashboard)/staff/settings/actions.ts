@@ -77,3 +77,49 @@ export async function updateProfileAction(formData: FormData) {
   revalidatePath('/staff/dashboard');
   return { success: true };
 }
+
+export async function resetTestDataAction() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error('Unauthorized');
+  
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (user?.role !== 'SUPER_ADMIN') {
+    throw new Error('Only SUPER_ADMIN can reset data');
+  }
+
+  await prisma.$transaction([
+    prisma.progressPhoto.deleteMany({}),
+    prisma.measurement.deleteMany({}),
+    prisma.workoutSet.deleteMany({}),
+    prisma.workoutSessionExercise.deleteMany({}),
+    prisma.workoutSession.deleteMany({}),
+    prisma.workoutExercise.deleteMany({}),
+    prisma.workoutDay.deleteMany({}),
+    prisma.workoutPlan.deleteMany({}),
+    prisma.fitnessGoal.deleteMany({}),
+    prisma.attendanceRecord.deleteMany({}),
+    prisma.deviceAccessEvent.deleteMany({}),
+    prisma.deviceMemberIdentity.deleteMany({}),
+    prisma.deviceCommandQueue.deleteMany({}),
+    prisma.paymentAllocation.deleteMany({}),
+    prisma.paymentRefund.deleteMany({}),
+    prisma.receipt.deleteMany({}),
+    prisma.payment.deleteMany({}),
+    prisma.invoiceStatusHistory.deleteMany({}),
+    prisma.invoiceItem.deleteMany({}),
+    prisma.invoice.deleteMany({}),
+    prisma.billingIntent.deleteMany({}),
+    prisma.membershipFreeze.deleteMany({}),
+    prisma.membershipStatusHistory.deleteMany({}),
+    prisma.membership.deleteMany({}),
+    prisma.leadFollowUp.deleteMany({}),
+    prisma.leadStatusHistory.deleteMany({}),
+    prisma.lead.deleteMany({}),
+    prisma.memberProfile.deleteMany({}),
+    prisma.notification.deleteMany({}),
+    prisma.auditLog.deleteMany({}),
+    prisma.businessActivityLog.deleteMany({}),
+  ]);
+
+  return { success: true };
+}

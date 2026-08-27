@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { updateBranchAction, updateProfileAction } from './actions';
 import { useRef, useState } from 'react';
-import { Save, User, Building, Cable } from 'lucide-react';
+import { Save, User, Building, Cable, TriangleAlert } from 'lucide-react';
 
 export function SettingsTabs({ branch, user, staffProfile }: any) {
   const [isSavingBranch, setIsSavingBranch] = useState(false);
@@ -47,6 +47,7 @@ export function SettingsTabs({ branch, user, staffProfile }: any) {
         <TabsTrigger value="general" className="gap-2 py-2.5 px-4"><Building className="h-4 w-4" /> General</TabsTrigger>
         <TabsTrigger value="profile" className="gap-2 py-2.5 px-4"><User className="h-4 w-4" /> Profile</TabsTrigger>
         <TabsTrigger value="integrations" className="gap-2 py-2.5 px-4"><Cable className="h-4 w-4" /> Integrations</TabsTrigger>
+        <TabsTrigger value="danger" className="gap-2 py-2.5 px-4 text-danger hover:bg-danger/10 hover:text-danger data-[state=active]:bg-danger data-[state=active]:text-danger-foreground"><TriangleAlert className="h-4 w-4" /> Danger Zone</TabsTrigger>
       </TabsList>
 
       <TabsContent value="general">
@@ -151,6 +152,48 @@ export function SettingsTabs({ branch, user, staffProfile }: any) {
                   <Input disabled value="4370" />
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="danger">
+        <Card className="border-danger/50 bg-danger/5 backdrop-blur-sm shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-danger flex items-center gap-2">
+              Danger Zone
+            </CardTitle>
+            <CardDescription className="text-danger/80">Destructive actions. Use with extreme caution.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border border-danger/20 rounded-lg bg-background/50">
+              <div>
+                <h4 className="font-semibold text-foreground">Reset Test Data</h4>
+                <p className="text-sm text-muted-foreground mt-1">Permanently delete all members, invoices, attendance, and activity logs. Keeps branch, staff, and plans intact.</p>
+              </div>
+              <Button 
+                variant="destructive"
+                onClick={async () => {
+                  const confirmed = confirm('WARNING: This will delete ALL member data, invoices, and attendance logs. Type "CONFIRM" to proceed.');
+                  if (confirmed) {
+                    const typed = prompt('Type "CONFIRM" exactly to permanently delete data.');
+                    if (typed === 'CONFIRM') {
+                      try {
+                        const { resetTestDataAction } = await import('./actions');
+                        await resetTestDataAction();
+                        alert('Data successfully deleted! The system is now clean.');
+                        window.location.reload();
+                      } catch (e: any) {
+                        alert('Error deleting data: ' + e.message);
+                      }
+                    } else {
+                      alert('Reset cancelled. You did not type CONFIRM.');
+                    }
+                  }
+                }}
+              >
+                Clear Test Data
+              </Button>
             </div>
           </CardContent>
         </Card>
