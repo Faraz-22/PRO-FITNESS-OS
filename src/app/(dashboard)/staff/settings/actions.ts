@@ -88,6 +88,8 @@ export async function resetTestDataAction() {
   }
 
   await prisma.$transaction([
+    prisma.portfolioContent.deleteMany({}),
+    prisma.portfolio.deleteMany({}),
     prisma.progressPhoto.deleteMany({}),
     prisma.measurement.deleteMany({}),
     prisma.workoutSet.deleteMany({}),
@@ -97,30 +99,43 @@ export async function resetTestDataAction() {
     prisma.workoutDay.deleteMany({}),
     prisma.workoutPlan.deleteMany({}),
     prisma.fitnessGoal.deleteMany({}),
+    
+    prisma.trainerAssignment.deleteMany({}),
+    
     prisma.attendanceRecord.deleteMany({}),
     prisma.deviceAccessEvent.deleteMany({}),
     prisma.deviceMemberIdentity.deleteMany({}),
     prisma.deviceCommandQueue.deleteMany({}),
+    
     prisma.paymentAllocation.deleteMany({}),
     prisma.paymentRefund.deleteMany({}),
     prisma.receipt.deleteMany({}),
     prisma.payment.deleteMany({}),
+    
     prisma.invoiceStatusHistory.deleteMany({}),
     prisma.invoiceItem.deleteMany({}),
     prisma.invoice.deleteMany({}),
     prisma.billingIntent.deleteMany({}),
+    
     prisma.membershipFreeze.deleteMany({}),
     prisma.membershipStatusHistory.deleteMany({}),
     prisma.membership.deleteMany({}),
+    
     prisma.leadFollowUp.deleteMany({}),
     prisma.leadStatusHistory.deleteMany({}),
     prisma.lead.deleteMany({}),
+    
     prisma.memberProfile.deleteMany({}),
+    
+    prisma.notificationPreference.deleteMany({}),
     prisma.notification.deleteMany({}),
     prisma.auditLog.deleteMany({}),
     prisma.businessActivityLog.deleteMany({}),
     
-    // Delete users last to avoid foreign key constraint errors (e.g., AuditLog pointing to User)
+    prisma.session.deleteMany({}),
+    prisma.account.deleteMany({}),
+    prisma.passwordResetToken.deleteMany({}),
+    
     prisma.user.deleteMany({
       where: {
         role: { notIn: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }
