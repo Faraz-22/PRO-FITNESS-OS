@@ -1,14 +1,17 @@
 import prisma from '@/lib/db/prisma';
 
 export const FinanceQueryService = {
-  async getTodayCollection(branchId?: string) {
+  async getCollectionBetween(branchId?: string, startDate?: Date, endDate?: Date) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    const from = startDate || today;
+    const to = endDate || new Date();
 
     return prisma.payment.findMany({
       where: {
         status: 'SUCCESS',
-        receivedAt: { gte: today },
+        receivedAt: { gte: from, lte: to },
         ...(branchId ? { branchId } : {})
       }
     });

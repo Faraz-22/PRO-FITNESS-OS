@@ -11,15 +11,35 @@ import { FileText, IndianRupee, AlertCircle, Clock } from 'lucide-react';
 import { RecordPaymentModal } from './record-payment-modal';
 import { ApprovePaymentButton } from '../members/[id]/approve-payment-button';
 
-export default async function FinancePage() {
+import { Input } from '@/components/ui/input';
+
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined }
+}) {
   const session = await auth();
   if (!session?.user) redirect('/auth/login');
 
   const staff = await prisma.staffProfile.findUnique({ where: { userId: session.user.id } });
   const branchId = staff?.branchId;
 
+  const fromParam = typeof searchParams.from === 'string' ? searchParams.from : undefined;
+  const toParam = typeof searchParams.to === 'string' ? searchParams.to : undefined;
+
+  let startDate: Date | undefined = undefined;
+  let endDate: Date | undefined = undefined;
+
+  if (fromParam) {
+    startDate = new Date(fromParam);
+  }
+  if (toParam) {
+    endDate = new Date(toParam);
+    endDate.setHours(23, 59, 59, 999);
+  }
+
   const [todayPayments, pendingInvoices, posInvoices] = await Promise.all([
-    FinanceQueryService.getTodayCollection(branchId),
+    FinanceQueryService.getCollectionBetween(branchId, startDate, endDate),
     FinanceQueryService.getPendingInvoices(branchId, 10),
     FinanceQueryService.getPosInvoices(branchId, 10)
   ]);
@@ -82,10 +102,31 @@ export default async function FinancePage() {
         </div>
       )}
 
+      <form method="GET" action="/staff/finance" className="flex flex-wrap items-end gap-3 bg-card/50 p-4 rounded-lg border border-border/50">
+        <div>
+          <label htmlFor="from" className="text-xs text-muted-foreground mb-1.5 block font-medium">Start Date</label>
+          <Input type="date" id="from" name="from" defaultValue={fromParam} className="h-9 w-40 bg-background" />
+        </div>
+        <div>
+          <label htmlFor="to" className="text-xs text-muted-foreground mb-1.5 block font-medium">End Date</label>
+          <Input type="date" id="to" name="to" defaultValue={toParam} className="h-9 w-40 bg-background" />
+        </div>
+        <div className="flex gap-2">
+          <Button type="submit" variant="secondary" className="h-9 px-4 font-medium">Filter</Button>
+          {(fromParam || toParam) && (
+            <Link href="/staff/finance">
+              <Button variant="ghost" className="h-9 px-4 font-medium">Clear</Button>
+            </Link>
+          )}
+        </div>
+      </form>
+
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Today&apos;s Collection</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {(fromParam || toParam) ? 'Filtered Collection' : "Today's Collection"}
+            </CardTitle>
             <div className="p-2 bg-success/10 rounded-md">
               <IndianRupee className="h-4 w-4 text-success" />
             </div>

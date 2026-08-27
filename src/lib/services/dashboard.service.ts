@@ -4,12 +4,12 @@ import { startOfDay, endOfDay, addDays, startOfMonth, endOfMonth, format } from 
 export const DashboardService = {
   async getExecutiveMetrics(branchId?: string) {
     const whereBranch = branchId ? { branchId } : {};
+    const activeMemberWhere = { ...whereBranch, archivedAt: null };
 
     const now = new Date();
     const activeMembers = await prisma.memberProfile.count({
       where: {
-        ...whereBranch,
-        archivedAt: null,
+        ...activeMemberWhere,
         memberships: { 
           some: { 
             status: 'ACTIVE'
@@ -26,20 +26,21 @@ export const DashboardService = {
     const todayAttendance = await prisma.attendanceRecord.count({
       where: {
         checkInTime: { gte: todayStart, lte: todayEnd },
-        member: whereBranch
+        member: activeMemberWhere
       }
     });
 
     const activeLeads = await prisma.lead.count({
       where: {
         ...whereBranch,
+        archivedAt: null,
         status: { notIn: ['CONVERTED', 'LOST'] }
       }
     });
 
     const recentPayments = await prisma.payment.findMany({
       where: {
-        member: whereBranch,
+        member: activeMemberWhere,
         status: 'SUCCESS'
       },
       take: 5,
@@ -49,7 +50,7 @@ export const DashboardService = {
 
     const expiringMemberships = await prisma.membership.findMany({
       where: {
-        ...whereBranch,
+        member: activeMemberWhere,
         status: 'ACTIVE',
         endDate: {
           gte: todayStart,
@@ -63,7 +64,7 @@ export const DashboardService = {
 
     const activeSessions = await prisma.attendanceRecord.findMany({
       where: {
-        member: whereBranch,
+        member: activeMemberWhere,
         checkInTime: { gte: todayStart, lte: todayEnd }
       },
       take: 10,
@@ -76,7 +77,7 @@ export const DashboardService = {
     // 1. Current Month Revenue (grouped by day)
     const monthPayments = await prisma.payment.findMany({
       where: {
-        member: whereBranch,
+        member: activeMemberWhere,
         status: 'SUCCESS',
         receivedAt: { gte: monthStart, lte: monthEnd }
       },
@@ -95,7 +96,7 @@ export const DashboardService = {
 
     // 2. Gender Distribution among All Members
     const allMemberProfiles = await prisma.memberProfile.findMany({
-      where: whereBranch,
+      where: activeMemberWhere,
       select: { gender: true }
     });
 
@@ -114,7 +115,7 @@ export const DashboardService = {
     // Find all memberships that expire(d) this month
     const expiredThisMonth = await prisma.membership.findMany({
       where: {
-        ...whereBranch,
+        member: activeMemberWhere,
         endDate: { gte: monthStart, lte: monthEnd }
       },
       select: { memberId: true, id: true }
