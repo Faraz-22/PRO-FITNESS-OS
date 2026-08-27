@@ -15,7 +15,7 @@ export async function activateScheduledMembership(membershipId: string) {
   });
   if (!membershipPre) throw new Error('Membership not found');
 
-  return withMembershipLock(membershipPre.memberId, membershipPre.branchId, async (tx) => {
+  const updated = await withMembershipLock(membershipPre.memberId, membershipPre.branchId, async (tx) => {
     const membership = await tx.membership.findUnique({
       where: { id: membershipId },
       include: { branch: true }
@@ -75,9 +75,11 @@ export async function activateScheduledMembership(membershipId: string) {
       }
     });
 
-    // Grant physical access
-    await MemberAccessSyncService.queueMemberAccessSync(membership.memberId, membership.branchId, true);
-
     return updated;
   });
+
+  // Grant physical access outside the transaction to prevent deadlocks
+  await MemberAccessSyncService.queueMemberAccessSync(membershipPre.memberId, membershipPre.branchId, true);
+
+  return updated;
 }

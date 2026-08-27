@@ -13,7 +13,7 @@ export async function cancelMembership(membershipId: string, reason: string) {
 
   if (membership.status === 'CANCELLED') throw new Error('Membership is already cancelled');
 
-  return withMembershipLock(membership.memberId, membership.branchId, async (tx) => {
+  const updated = await withMembershipLock(membership.memberId, membership.branchId, async (tx) => {
     const updated = await tx.membership.update({
       where: { id: membershipId },
       data: { status: 'CANCELLED' }
@@ -41,11 +41,13 @@ export async function cancelMembership(membershipId: string, reason: string) {
       }
     });
 
-    // Revoke physical access
-    await MemberAccessSyncService.queueMemberAccessSync(membership.memberId, membership.branchId, false);
-
     return updated;
   });
+
+  // Revoke physical access outside the transaction to prevent deadlocks
+  await MemberAccessSyncService.queueMemberAccessSync(membership.memberId, membership.branchId, false);
+
+  return updated;
 }
 
 export async function syncMembershipExpirations(branchId: string) {
@@ -86,10 +88,11 @@ export async function syncMembershipExpirations(branchId: string) {
           changes: JSON.stringify({ systemEvent: true }),
         }
       });
-      
-      // Revoke physical access
-      await MemberAccessSyncService.queueMemberAccessSync(m.memberId, m.branchId, false);
     });
+    
+    // Revoke physical access outside the transaction to prevent deadlocks
+    await MemberAccessSyncService.queueMemberAccessSync(m.memberId, m.branchId, false);
+
     expiredCount++;
   }
 
