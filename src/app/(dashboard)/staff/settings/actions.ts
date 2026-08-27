@@ -116,6 +116,14 @@ export async function resetTestDataAction() {
     prisma.leadStatusHistory.deleteMany({}),
     prisma.lead.deleteMany({}),
     prisma.memberProfile.deleteMany({}),
+    
+    // Also delete any users that are just standard members or basic staff (leave super admin/manager)
+    prisma.user.deleteMany({
+      where: {
+        role: { notIn: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }
+      }
+    }),
+    
     prisma.notification.deleteMany({}),
     prisma.auditLog.deleteMany({}),
     prisma.businessActivityLog.deleteMany({}),
