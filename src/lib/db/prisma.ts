@@ -6,8 +6,9 @@ const prismaClientSingleton = () => {
   const connectionString = process.env.DATABASE_URL;
   const pool = new Pool({ 
     connectionString,
-    max: 1, // Limit connections per serverless instance to prevent DB exhaustion
-    idleTimeoutMillis: 10000 // Close idle connections quickly
+    max: 1, // Limit connections per serverless instance
+    idleTimeoutMillis: 1, // Close connections IMMEDIATELY when idle to prevent zombie connections on Vercel
+    allowExitOnIdle: true
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
