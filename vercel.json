@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/process-freezes",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/process-expirations",
+      "schedule": "5 0 * * *"
     }
   ]
 }
