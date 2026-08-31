@@ -108,8 +108,6 @@ export function FinanceCheckoutModal({
     if (loading) return;
     setLoading(true);
     
-    const printWindow = window.open('about:blank', '_blank');
-    
     try {
       const financeData: any = {
         discountAmount,
@@ -124,17 +122,10 @@ export function FinanceCheckoutModal({
         financeData.couponCode = appliedCoupon.code;
       }
       
-      const result = await onConfirm(financeData);
-      
-      if (result && result.success && result.invoiceId && printWindow) {
-        printWindow.location.href = `/print/invoice/${result.invoiceId}`;
-      } else if (printWindow) {
-        printWindow.close();
-      }
+      await onConfirm(financeData);
       
       if (!isControlled) setOpen(false);
     } catch (error) {
-      if (printWindow) printWindow.close();
       // Error handled by parent usually
     } finally {
       setLoading(false);
@@ -289,7 +280,7 @@ export function FinanceCheckoutModal({
           </Button>
           <Button onClick={handleConfirm} disabled={loading} className="bg-primary">
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            Confirm & Generate Invoice
+            Confirm Enrollment
           </Button>
         </DialogFooter>
       </DialogContent>
