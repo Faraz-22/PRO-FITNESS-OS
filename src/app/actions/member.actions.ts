@@ -349,7 +349,7 @@ export async function approvePaymentAction(paymentId: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: 'Unauthorized' };
 
-    let membershipToSync: { memberId: string, branchId: string } | null = null;
+    let membershipToSync: { memberId: string, linkedMemberId?: string | null, branchId: string } | null = null;
 
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({ 
@@ -399,7 +399,7 @@ export async function approvePaymentAction(paymentId: string) {
              data: { status: 'ACTIVE' }
            });
            
-           membershipToSync = { memberId: membership.memberId, branchId: membership.branchId };
+           membershipToSync = { memberId: membership.memberId, linkedMemberId: membership.linkedMemberId, branchId: membership.branchId };
         }
       }
     });
@@ -408,6 +408,9 @@ export async function approvePaymentAction(paymentId: string) {
       // Grant physical access outside the transaction to prevent deadlocks
       const { MemberAccessSyncService } = await import('@/lib/services/member-access-sync.service');
       await MemberAccessSyncService.queueMemberAccessSync(membershipToSync.memberId, membershipToSync.branchId, true);
+      if (membershipToSync.linkedMemberId) {
+        await MemberAccessSyncService.queueMemberAccessSync(membershipToSync.linkedMemberId, membershipToSync.branchId, true);
+      }
     }
 
     revalidatePath('/staff/members');

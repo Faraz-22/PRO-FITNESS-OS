@@ -16,7 +16,10 @@ export class MemberAccessEligibilityService {
   static async canMemberAccessGym(memberId: string, branchId: string, timestamp: Date = new Date()): Promise<AccessEligibilityResult> {
     const member = await prisma.memberProfile.findUnique({
       where: { id: memberId },
-      include: { memberships: true }
+      include: { 
+        memberships: true,
+        linkedMemberships: true
+      }
     });
 
     if (!member) {
@@ -33,7 +36,8 @@ export class MemberAccessEligibilityService {
     }
 
     // Find any membership that is ACTIVE and covers the timestamp
-    const activeMembership = member.memberships.find(m => 
+    const allMemberships = [...member.memberships, ...(member.linkedMemberships || [])];
+    const activeMembership = allMemberships.find(m => 
       m.status === 'ACTIVE' && 
       m.startDate <= timestamp && 
       m.endDate >= timestamp
@@ -50,16 +54,16 @@ export class MemberAccessEligibilityService {
     }
 
     // Identify denial reason
-    const hasFrozen = member.memberships.some(m => m.status === 'FROZEN');
+    const hasFrozen = allMemberships.some(m => m.status === 'FROZEN');
     if (hasFrozen) return { allowed: false, reason: 'MEMBERSHIP_FROZEN', branchId, evaluatedAt: timestamp };
 
-    const hasPending = member.memberships.some(m => m.status === 'PENDING_PAYMENT');
+    const hasPending = allMemberships.some(m => m.status === 'PENDING_PAYMENT');
     if (hasPending) return { allowed: false, reason: 'MEMBERSHIP_PENDING', branchId, evaluatedAt: timestamp };
 
-    const hasExpired = member.memberships.some(m => m.status === 'EXPIRED');
+    const hasExpired = allMemberships.some(m => m.status === 'EXPIRED');
     if (hasExpired) return { allowed: false, reason: 'MEMBERSHIP_EXPIRED', branchId, evaluatedAt: timestamp };
 
-    const hasCancelled = member.memberships.some(m => m.status === 'CANCELLED');
+    const hasCancelled = allMemberships.some(m => m.status === 'CANCELLED');
     if (hasCancelled) return { allowed: false, reason: 'MEMBERSHIP_CANCELLED', branchId, evaluatedAt: timestamp };
 
     return { allowed: false, reason: 'NO_MEMBERSHIP', branchId, evaluatedAt: timestamp };
