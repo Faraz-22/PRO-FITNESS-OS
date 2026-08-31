@@ -22,8 +22,8 @@ export function FreezeMembershipButton({ membershipId }: FreezeMembershipButtonP
   const router = useRouter();
 
   const handleFreeze = async () => {
-    if (days < 1 || days > 30) {
-      toast.add({ title: 'Freeze duration must be between 1 and 30 days', type: 'error' });
+    if (days < 1 || days > 60) {
+      toast.add({ title: 'Freeze duration must be between 1 and 60 days', type: 'error' });
       return;
     }
 
@@ -68,11 +68,11 @@ export function FreezeMembershipButton({ membershipId }: FreezeMembershipButtonP
               id="days"
               type="number"
               min={1}
-              max={30}
+              max={60}
               value={days}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDays(Number(e.target.value))}
             />
-            <p className="text-xs text-muted-foreground">Maximum of 30 days allowed.</p>
+            <p className="text-xs text-muted-foreground">Maximum of 60 days allowed.</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="reason">Reason (Optional)</Label>

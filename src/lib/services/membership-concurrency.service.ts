@@ -29,5 +29,8 @@ export async function withMembershipLock<T>(
     await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${key1}, ${key2})`);
 
     return await callback(tx);
+  }, {
+    maxWait: 10000, // 10 seconds to wait for a connection
+    timeout: 30000, // 30 seconds for the transaction to complete (increased from default 5s)
   });
 }
