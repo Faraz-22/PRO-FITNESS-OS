@@ -36,6 +36,8 @@ export async function createMembershipPlanAction(data: MembershipPlanFormData) {
         durationDays: validated.durationDays,
         price: validated.price,
         planType: validated.planType,
+        category: validated.category,
+        maxMembers: validated.maxMembers,
         isActive: validated.isActive,
         benefits: validated.benefits,
         branchId: staff.branchId,
@@ -89,6 +91,8 @@ export async function updateMembershipPlanAction(data: MembershipPlanFormData) {
         durationDays: validated.durationDays,
         price: validated.price,
         planType: validated.planType,
+        category: validated.category,
+        maxMembers: validated.maxMembers,
         isActive: validated.isActive,
         benefits: validated.benefits,
       }
