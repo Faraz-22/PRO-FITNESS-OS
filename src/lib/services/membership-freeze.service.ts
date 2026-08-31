@@ -19,7 +19,7 @@ export async function freezeMembership(membershipId: string, days: number, reaso
 
   if (membership.status !== 'ACTIVE') throw new Error(`Cannot freeze membership in status ${membership.status}`);
 
-  return withMembershipLock(membership.memberId, membership.branchId, async (tx) => {
+  const freeze = await withMembershipLock(membership.memberId, membership.branchId, async (tx) => {
     const existingFreeze = await tx.membershipFreeze.findFirst({
       where: { membershipId, status: 'ACTIVE' }
     });
@@ -73,11 +73,13 @@ export async function freezeMembership(membershipId: string, days: number, reaso
       }
     });
 
-    // Revoke physical access
-    await MemberAccessSyncService.queueMemberAccessSync(membership.memberId, membership.branchId, false);
-
     return freeze;
   });
+
+  // Revoke physical access
+  await MemberAccessSyncService.queueMemberAccessSync(membership.memberId, membership.branchId, false);
+
+  return freeze;
 }
 
 export async function resumeMembership(membershipId: string) {
@@ -92,7 +94,7 @@ export async function resumeMembership(membershipId: string) {
 
   if (membership.status !== 'FROZEN') throw new Error('Membership is not frozen');
 
-  return withMembershipLock(membership.memberId, membership.branchId, async (tx) => {
+  const updated = await withMembershipLock(membership.memberId, membership.branchId, async (tx) => {
     const activeFreeze = await tx.membershipFreeze.findFirst({
       where: { membershipId, status: 'ACTIVE' }
     });
@@ -181,11 +183,13 @@ export async function resumeMembership(membershipId: string) {
       });
     }
 
-    // Grant physical access
-    await MemberAccessSyncService.queueMemberAccessSync(membership.memberId, membership.branchId, true);
-
     return updated;
   });
+
+  // Grant physical access
+  await MemberAccessSyncService.queueMemberAccessSync(membership.memberId, membership.branchId, true);
+
+  return updated;
 }
 
 export async function processDailyFreezeExpirations() {
@@ -275,10 +279,11 @@ export async function processDailyFreezeExpirations() {
               }
             });
           }
-
-          // Grant physical access
-          await MemberAccessSyncService.queueMemberAccessSync(freeze.membership.memberId, freeze.membership.branchId, true);
         });
+
+        // Grant physical access
+        await MemberAccessSyncService.queueMemberAccessSync(freeze.membership.memberId, freeze.membership.branchId, true);
+
         processedCount++;
       } catch (error) {
         console.error(`Failed to auto-resume freeze ${freeze.id}:`, error);
