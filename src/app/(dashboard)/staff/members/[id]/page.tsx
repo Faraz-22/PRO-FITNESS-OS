@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { ArrowLeft, Mail, Phone, Calendar, CreditCard, Activity, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Calendar, CreditCard, Activity, CheckCircle2, Clock, AlertCircle, Dumbbell } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { ApprovePaymentButton } from './approve-payment-button';
@@ -55,6 +55,14 @@ export default async function MemberWorkspacePage({ params }: { params: Promise<
   
   const massageCount = posInvoices.reduce((acc, inv) => acc + inv.items.filter(i => i.description.toLowerCase().includes('massage')).length, 0);
   const steamBathCount = posInvoices.reduce((acc, inv) => acc + inv.items.filter(i => i.description.toLowerCase().includes('steam')).length, 0);
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  const hasActivePT = posInvoices.some(inv => 
+    inv.issueDate && inv.issueDate >= thirtyDaysAgo &&
+    inv.items.some(i => i.description.toLowerCase().includes('personal training'))
+  );
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
@@ -204,6 +212,18 @@ export default async function MemberWorkspacePage({ params }: { params: Promise<
                             <span className="text-lg font-bold text-foreground">{steamBathCount} <span className="text-sm font-normal text-muted-foreground">sessions</span></span>
                           </div>
                         </div>
+
+                        {hasActivePT && (
+                          <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-md flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+                              <Dumbbell className="h-4 w-4 text-primary" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-primary text-sm">Active Personal Training</div>
+                              <div className="text-xs text-primary/80">Valid for 30 days from purchase</div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   }

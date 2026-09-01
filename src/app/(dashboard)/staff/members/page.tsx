@@ -11,7 +11,7 @@ import { Search, Phone, MessageCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { MemberActions } from './member-actions';
 
-export default async function MembersPage({ searchParams }: { searchParams: Promise<{ q?: string, dateFrom?: string, dateTo?: string }> }) {
+export default async function MembersPage({ searchParams }: { searchParams: Promise<{ q?: string, dateFrom?: string, dateTo?: string, activePtOnly?: string }> }) {
   const session = await auth();
   if (!session?.user) redirect('/auth/login');
 
@@ -22,9 +22,10 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
   const q = resolvedParams.q;
   const dateFrom = resolvedParams.dateFrom;
   const dateTo = resolvedParams.dateTo;
+  const activePtOnly = resolvedParams.activePtOnly === 'true';
 
   const [members, totalMembersCount] = await Promise.all([
-    MemberQueryService.getMembersDirectory(branchId, 50, q, dateFrom, dateTo),
+    MemberQueryService.getMembersDirectory(branchId, 50, q, dateFrom, dateTo, activePtOnly),
     MemberQueryService.getTotalMembersCount(branchId)
   ]);
 
@@ -65,6 +66,19 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
               className="w-[140px] bg-card border-border/50 text-foreground focus-visible:ring-primary"
               title="Date To"
             />
+            <div className="flex items-center gap-2 mx-2">
+              <input 
+                type="checkbox" 
+                id="activePtOnly" 
+                name="activePtOnly" 
+                value="true" 
+                defaultChecked={activePtOnly} 
+                className="rounded border-border/50 text-primary focus:ring-primary h-4 w-4" 
+              />
+              <label htmlFor="activePtOnly" className="text-sm font-medium text-foreground whitespace-nowrap cursor-pointer">
+                Active PT Only
+              </label>
+            </div>
             <Button type="submit" variant="secondary" size="sm" className="h-9">
               Filter
             </Button>
@@ -95,7 +109,14 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
                   <TableCell className="font-medium text-muted-foreground pl-6">{member.memberNumber}</TableCell>
                   <TableCell className="font-medium text-foreground">{member.firstName} {member.lastName}</TableCell>
                   <TableCell>
-                    <div className="text-sm text-foreground">{member.user?.email || 'N/A'}</div>
+                    <div className="text-sm text-foreground flex items-center gap-2">
+                      {member.user?.email || 'N/A'}
+                      {((member as any).invoices?.length > 0) && (
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 px-1 py-0 h-4 text-[10px]" title="Active Personal Training">
+                          PT
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground mt-0.5">{member.phone}</div>
                   </TableCell>
                   <TableCell>

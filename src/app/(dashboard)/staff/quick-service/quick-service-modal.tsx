@@ -106,7 +106,7 @@ export function QuickServiceModal() {
               <SelectContent>
                 <SelectItem value="Steam Bath">Steam Bath</SelectItem>
                 <SelectItem value="Massage Therapy">Massage Therapy</SelectItem>
-                <SelectItem value="Personal Training (Session)">Personal Training (Session)</SelectItem>
+                <SelectItem value="Personal Training (1 Month)">Personal Training (1 Month)</SelectItem>
                 <SelectItem value="Diet Consultation">Diet Consultation</SelectItem>
                 <SelectItem value="Guest Gym Pass (1 Day)">Guest Gym Pass (1 Day)</SelectItem>
                 <SelectItem value="Other">Other Custom Service</SelectItem>

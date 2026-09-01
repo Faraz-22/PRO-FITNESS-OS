@@ -1,7 +1,7 @@
 import prisma from '@/lib/db/prisma';
 
 export const MemberQueryService = {
-  async getMembersDirectory(branchId?: string, take: number = 50, query?: string, dateFrom?: string, dateTo?: string) {
+  async getMembersDirectory(branchId?: string, take: number = 50, query?: string, dateFrom?: string, dateTo?: string, activePtOnly?: boolean) {
     const whereClause: any = { archivedAt: null, memberNumber: { not: { startsWith: 'GST' } } };
     if (branchId) whereClause.branchId = branchId;
     
@@ -23,6 +23,22 @@ export const MemberQueryService = {
         { memberNumber: { contains: query, mode: 'insensitive' } }
       ];
     }
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    if (activePtOnly) {
+      whereClause.invoices = {
+        some: {
+          status: 'PAID',
+          issueDate: { gte: thirtyDaysAgo },
+          items: {
+            some: { description: { contains: 'personal training', mode: 'insensitive' } }
+          }
+        }
+      };
+    }
+
     const now = new Date();
     return prisma.memberProfile.findMany({
       where: whereClause,
@@ -39,6 +55,16 @@ export const MemberQueryService = {
         linkedMemberships: {
           where: {
             status: 'ACTIVE'
+          },
+          take: 1
+        },
+        invoices: {
+          where: {
+            status: 'PAID',
+            issueDate: { gte: thirtyDaysAgo },
+            items: {
+              some: { description: { contains: 'personal training', mode: 'insensitive' } }
+            }
           },
           take: 1
         }

@@ -33,6 +33,7 @@ interface SellServiceButtonProps {
 const SERVICES = [
   { id: 'massage-chair', name: 'Massage Chair Therapy (20 mins)', price: 100 },
   { id: 'steam-bath', name: 'Steam Bath Session', price: 250 },
+  { id: 'personal-training', name: 'Personal Training (1 Month)', price: 3000 },
 ];
 
 export function SellServiceButton({ memberId, branchId }: SellServiceButtonProps) {
