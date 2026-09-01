@@ -2,7 +2,6 @@ import prisma from '@/lib/db/prisma';
 import { notFound } from 'next/navigation';
 import { PrintAction } from './print-action';
 import Image from 'next/image';
-import { Suspense } from 'react';
 
 export default async function ServiceTicketPrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -92,9 +91,7 @@ export default async function ServiceTicketPrintPage({ params }: { params: Promi
 
       </div>
 
-      <Suspense fallback={null}>
-        <PrintAction backUrl={`/staff/members/${invoice.memberId}`} />
-      </Suspense>
+      <PrintAction backUrl={`/staff/members/${invoice.memberId}`} />
 
       {/* CSS specific to 80mm thermal printers to force cut after content */}
       <style dangerouslySetInnerHTML={{__html: `

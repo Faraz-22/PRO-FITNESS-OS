@@ -1,51 +1,35 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Printer } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
-export function PrintAction({ backUrl }: { backUrl?: string }) {
-  const searchParams = useSearchParams();
-  const isViewMode = searchParams.get('view') === 'true';
+export function PrintAction({ backUrl }: { backUrl: string }) {
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    if (isViewMode) return; // Do not auto-print in view mode
-    
+    setIsClient(true);
+    // Auto print when the page loads
     const timer = setTimeout(() => {
       window.print();
     }, 500);
     return () => clearTimeout(timer);
-  }, [isViewMode]);
+  }, []);
 
-  if (isViewMode) {
-    return (
-      <div className="fixed bottom-4 left-0 right-0 flex justify-center print:hidden px-4">
-        <button 
-          onClick={() => window.print()} 
-          className="w-full max-w-sm px-6 py-3 bg-black text-white rounded-full shadow-xl text-sm font-bold hover:bg-gray-800 transition-transform active:scale-95"
-        >
-          ⬇️ Save / Print Receipt
-        </button>
-      </div>
-    );
-  }
+  if (!isClient) return null;
 
   return (
-    <div className="fixed top-4 right-4 print:hidden flex flex-col gap-2">
-      <button 
-        onClick={() => window.print()} 
-        className="px-4 py-2 bg-black text-white rounded shadow text-sm font-medium hover:bg-gray-800"
-      >
-        🖨️ Print Receipt
-      </button>
-      <button 
-        onClick={() => {
-          if (backUrl) window.location.href = backUrl;
-          else window.close();
-        }} 
-        className="px-4 py-2 bg-gray-200 text-black rounded shadow text-sm font-medium hover:bg-gray-300"
-      >
-        ✕ {backUrl ? 'Go Back' : 'Close Window'}
-      </button>
+    <div className="fixed top-4 left-4 flex gap-2 print:hidden z-50 bg-white/80 p-2 rounded-lg backdrop-blur shadow-sm">
+      <Button variant="outline" size="sm" onClick={() => router.push(backUrl)}>
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back
+      </Button>
+      <Button size="sm" onClick={() => window.print()}>
+        <Printer className="h-4 w-4 mr-2" />
+        Print Ticket
+      </Button>
     </div>
   );
 }
