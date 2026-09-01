@@ -127,3 +127,77 @@ export async function toggleCouponStatusAction(couponId: string, isActive: boole
   }
 }
 
+export async function deleteCouponAction(couponId: string, branchId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+    await requireFinanceManagerAccess(branchId);
+
+    await prisma.coupon.delete({
+      where: { id: couponId, branchId }
+    });
+
+    revalidatePath('/staff/coupons');
+    return { success: true };
+  } catch (error: any) {
+    if (error.code === 'P2003') {
+      return { success: false, error: 'Cannot delete coupon as it has been used in invoices. You can deactivate it instead.' };
+    }
+    return { success: false, error: 'Failed to delete coupon' };
+  }
+}
+
+const updateCouponSchema = z.object({
+  id: z.string(),
+  code: z.string().min(3),
+  discountType: z.enum(['PERCENTAGE', 'FIXED']),
+  discountValue: z.number().positive(),
+  maxUses: z.number().nullable().optional(),
+  validFrom: z.date().nullable().optional(),
+  validUntil: z.date().nullable().optional(),
+  branchId: z.string(),
+});
+
+export async function updateCouponAction(data: z.infer<typeof updateCouponSchema>) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+    await requireFinanceManagerAccess(data.branchId);
+
+    const parsed = updateCouponSchema.parse(data);
+
+    const existing = await prisma.coupon.findFirst({
+      where: {
+        code: parsed.code.toUpperCase(),
+        NOT: { id: parsed.id }
+      }
+    });
+
+    if (existing) {
+      return { success: false, error: 'Coupon code already exists' };
+    }
+
+    await prisma.coupon.update({
+      where: { id: parsed.id, branchId: parsed.branchId },
+      data: {
+        code: parsed.code.toUpperCase(),
+        discountType: parsed.discountType,
+        discountValue: parsed.discountValue,
+        maxUses: parsed.maxUses || null,
+        validFrom: parsed.validFrom || null,
+        validUntil: parsed.validUntil || null,
+      }
+    });
+
+    revalidatePath('/staff/coupons');
+    return { success: true };
+  } catch (error: any) {
+    if (error && typeof error === 'object' && 'issues' in error && Array.isArray(error.issues)) {
+      return { success: false, error: error.issues[0]?.message || 'Validation error' };
+    }
+    return { success: false, error: error.message || 'Failed to update coupon' };
+  }
+}
+

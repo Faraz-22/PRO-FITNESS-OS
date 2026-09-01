@@ -47,6 +47,12 @@ export default async function FinancePage({
   ]);
 
   const todayTotal = todayPayments.reduce((acc, p) => acc + Number(p.amount), 0);
+  const paymentsByMethod = todayPayments.reduce((acc, p) => {
+    const method = p.paymentMethod || 'OTHER';
+    if (!acc[method]) acc[method] = 0;
+    acc[method] += Number(p.amount);
+    return acc;
+  }, {} as Record<string, number>);
   
   // Calculate today's POS revenue
   const today = new Date();
@@ -135,7 +141,18 @@ export default async function FinancePage({
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(todayTotal)}</div>
-            <p className="text-xs text-muted-foreground mt-1">{todayPayments.length} payments received</p>
+            <p className="text-xs text-muted-foreground mt-1 mb-4">{todayPayments.length} payments received</p>
+
+            {Object.keys(paymentsByMethod).length > 0 && (
+              <div className="space-y-2 border-t border-border/50 pt-4 mt-2">
+                {Object.entries(paymentsByMethod).sort((a, b) => b[1] - a[1]).map(([method, amount]) => (
+                  <div key={method} className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-muted-foreground">{method.replace('_', ' ')}</span>
+                    <span className="text-sm font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount as number)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
         

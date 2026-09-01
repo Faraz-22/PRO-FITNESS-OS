@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/toast';
 import { toggleCouponStatusAction } from '@/app/actions/coupon.actions';
 import { format } from 'date-fns';
+import { deleteCouponAction } from '@/app/actions/coupon.actions';
+import { EditCouponModal } from './edit-coupon-modal';
+import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
 
 export function CouponTable({ coupons, branchId }: { coupons: any[], branchId: string }) {
   const [localCoupons, setLocalCoupons] = useState(coupons);
@@ -31,6 +35,22 @@ export function CouponTable({ coupons, branchId }: { coupons: any[], branchId: s
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this coupon?')) return;
+    
+    try {
+      const res = await deleteCouponAction(id, branchId);
+      if (!res.success) {
+        toast.add({ title: res.error || 'Failed to delete coupon', type: 'error' });
+      } else {
+        toast.add({ title: 'Coupon deleted successfully', type: 'success' });
+        setLocalCoupons(prev => prev.filter(c => c.id !== id));
+      }
+    } catch (e) {
+      toast.add({ title: 'Error deleting coupon', type: 'error' });
+    }
+  };
+
   if (localCoupons.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground">
@@ -49,6 +69,7 @@ export function CouponTable({ coupons, branchId }: { coupons: any[], branchId: s
             <TableHead>Usage Limits</TableHead>
             <TableHead>Validity Dates</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -93,6 +114,19 @@ export function CouponTable({ coupons, branchId }: { coupons: any[], branchId: s
                     <span className="text-sm text-muted-foreground">
                       {coupon.isActive ? 'Active' : 'Inactive'}
                     </span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <EditCouponModal coupon={coupon} branchId={branchId} />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-danger hover:bg-danger/10 hover:text-danger"
+                      onClick={() => handleDelete(coupon.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
