@@ -49,8 +49,8 @@ export function QuickServiceModal() {
         setServiceName('');
         setPrice('');
         
-        // Open printable invoice
-        window.open(`/print/invoice/${res.invoiceId}`, '_blank');
+        // Open printable POS receipt
+        window.open(`/print/ticket/${res.invoiceId}`, '_blank');
         router.refresh();
       } else {
         toast.add({ title: 'Failed to generate bill.', type: 'error' });
@@ -65,8 +65,8 @@ export function QuickServiceModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="border-border text-foreground hover:bg-secondary flex items-center gap-2">
-          <Zap className="h-4 w-4 text-amber-500" /> Quick Service
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 font-medium">
+          <Zap className="h-4 w-4" /> New Quick Service
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[450px]">

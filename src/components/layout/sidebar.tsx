@@ -17,12 +17,14 @@ import {
   Activity,
   ClipboardList,
   MapPin,
-  Tag
+  Tag,
+  Zap
 } from "lucide-react";
 
 const routes = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/staff/dashboard" },
   { label: "Reception", icon: ClipboardList, href: "/staff/reception" },
+  { label: "Quick Service", icon: Zap, href: "/staff/quick-service" },
   { label: "Members", icon: Users, href: "/staff/members" },
   { label: "CRM / Leads", icon: Target, href: "/staff/crm" },
   { label: "Memberships", icon: CreditCard, href: "/staff/memberships" },

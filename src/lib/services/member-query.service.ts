@@ -2,7 +2,7 @@ import prisma from '@/lib/db/prisma';
 
 export const MemberQueryService = {
   async getMembersDirectory(branchId?: string, take: number = 50, query?: string, dateFrom?: string, dateTo?: string) {
-    const whereClause: any = { archivedAt: null };
+    const whereClause: any = { archivedAt: null, memberNumber: { not: { startsWith: 'GST' } } };
     if (branchId) whereClause.branchId = branchId;
     
     if (dateFrom || dateTo) {
@@ -65,6 +65,7 @@ export const MemberQueryService = {
     return prisma.memberProfile.count({
       where: {
         archivedAt: null,
+        memberNumber: { not: { startsWith: 'GST' } },
         ...(branchId ? { branchId } : {})
       }
     });
