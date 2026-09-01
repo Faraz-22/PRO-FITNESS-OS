@@ -2,7 +2,6 @@ import prisma from '@/lib/db/prisma';
 import { notFound } from 'next/navigation';
 import { PrintAction } from './print-action';
 import Image from 'next/image';
-import { TicketQRCode } from './qr-code';
 import { Suspense } from 'react';
 
 export default async function ServiceTicketPrintPage({ params }: { params: Promise<{ id: string }> }) {
@@ -86,12 +85,9 @@ export default async function ServiceTicketPrintPage({ params }: { params: Promi
         </div>
 
         {/* Footer */}
-        <div className="text-center text-[10px] text-gray-500 pt-2 border-t border-solid border-gray-200 flex flex-col items-center">
+        <div className="text-center text-[10px] text-gray-500 pt-2 border-t border-solid border-gray-200">
           <p>Thank you for using our services!</p>
-          <div className="bg-white p-1 my-2 border-2 border-black inline-block">
-            <TicketQRCode invoiceId={invoice.id} />
-          </div>
-          <p className="font-mono text-[8px] uppercase">{invoice.invoiceNumber}</p>
+          <p className="mt-1 font-mono text-[8px]">{invoice.id.slice(-8)}</p>
         </div>
 
       </div>
