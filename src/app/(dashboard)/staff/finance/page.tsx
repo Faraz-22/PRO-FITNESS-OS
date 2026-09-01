@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { FileText, IndianRupee, AlertCircle, Clock } from 'lucide-react';
 import { RecordPaymentModal } from './record-payment-modal';
 import { ApprovePaymentButton } from '../members/[id]/approve-payment-button';
+import { QuickServiceModal } from './quick-service-modal';
 
 import { Input } from '@/components/ui/input';
 
@@ -84,6 +85,7 @@ export default async function FinancePage({
               Issue Invoice
             </Button>
           </Link>
+          <QuickServiceModal />
           <Link href="/staff/members">
             <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium">
               Record Payment
