@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { PrintAction } from './print-action';
 import Image from 'next/image';
-import QRCode from 'react-qr-code';
+import { InvoiceQRCode } from './qr-code';
+import { Suspense } from 'react';
 
 export default async function InvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -176,11 +177,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
           </div>
           <div className="pt-4 flex flex-col items-center">
              <div className="bg-white p-1 mb-1 border-2 border-black">
-               <QRCode 
-                 value={`https://profitness.app/print/invoice/${invoice.id}`}
-                 size={64}
-                 level="M"
-               />
+               <InvoiceQRCode invoiceId={invoice.id} />
              </div>
              <p className="text-[10px] mt-1 tracking-widest uppercase text-black font-mono font-bold">{invoice.invoiceNumber}</p>
           </div>
@@ -189,7 +186,9 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
 
       </div>
 
-      <PrintAction />
+      <Suspense fallback={null}>
+        <PrintAction />
+      </Suspense>
     </div>
     </>
   );
