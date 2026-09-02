@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 import prisma from '@/lib/db/prisma';
 import { AdmsParser } from '@/lib/integrations/access-control/adms-parser';
 import { AttendanceProcessingService } from '@/lib/services/attendance-processing.service';
