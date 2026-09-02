@@ -419,8 +419,8 @@ export default async function MemberWorkspacePage({ params }: { params: Promise<
                         <CheckCircle2 className="h-4 w-4 text-success" />
                       </div>
                       <div>
-                        <div className="font-medium text-foreground">{rec.checkInTime.toLocaleDateString()}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{rec.checkInTime.toLocaleTimeString()}</div>
+                        <div className="font-medium text-foreground">{rec.checkInTime.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{rec.checkInTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}</div>
                       </div>
                     </div>
                     <div>
