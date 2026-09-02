@@ -42,8 +42,9 @@ export async function GET(req: NextRequest) {
     return new NextResponse('ERROR: UNREGISTERED DEVICE', { status: 401 });
   }
 
-  // Device asks for initialization parameters via GET /iclock/cdata?SN=...&options=all
   // We respond with device configuration parameters in plaintext.
+  // We explicitly push Realtime=0 and TimeZone=330 (India) to overwrite
+  // any bad configuration stuck in the device's flash memory.
   const config = [
     `GET OPTION FROM: ${device.serialNumber}`,
     `Stamp=9999`, 
@@ -53,6 +54,8 @@ export async function GET(req: NextRequest) {
     `TransTimes=00:00;14:00`,
     `TransInterval=1`,
     `TransFlag=1111000000`,
+    `TimeZone=330`,
+    `Realtime=0`,
     `Encrypt=0`
   ].join('\n');
 
