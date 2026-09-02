@@ -33,9 +33,10 @@ export class AdmsParser {
         if (parts.length > 3) verifyType = parts[3]?.trim() || '0';
         if (parts.length > 4) workCode = parts[4]?.trim() || '0';
 
-        // Time format is usually YYYY-MM-DD HH:mm:ss in device's local time.
-        // We assume the device is configured in the correct timezone or we parse it as local.
-        const timestamp = new Date(timeStr.replace(' ', 'T')); 
+        // We assume the device is configured in the correct timezone (India, IST).
+        // By appending +05:30, the server (running in UTC) will parse this as IST time, 
+        // converting it back to the correct UTC time for database storage.
+        const timestamp = new Date(timeStr.replace(' ', 'T') + '+05:30');
 
         if (!isNaN(timestamp.getTime())) {
           logs.push({
