@@ -52,8 +52,6 @@ export async function GET(req: NextRequest) {
     `TransTimes=00:00;14:00`,
     `TransInterval=1`,
     `TransFlag=1111000000`,
-    `TimeZone=62`,
-    `Realtime=1`,
     `Encrypt=0`
   ].join('\n');
 
