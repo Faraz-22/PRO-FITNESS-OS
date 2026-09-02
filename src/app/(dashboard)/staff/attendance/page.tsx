@@ -75,8 +75,8 @@ export default async function AttendancePage() {
                     {rec.member.firstName} {rec.member.lastName}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    <div>{rec.checkInTime.toLocaleDateString()}</div>
-                    <div className="text-xs mt-0.5">{rec.checkInTime.toLocaleTimeString()}</div>
+                    <div>{rec.checkInTime.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</div>
+                    <div className="text-xs mt-0.5">{rec.checkInTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}</div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="bg-secondary text-secondary-foreground border-border text-[10px] uppercase tracking-wider font-medium">

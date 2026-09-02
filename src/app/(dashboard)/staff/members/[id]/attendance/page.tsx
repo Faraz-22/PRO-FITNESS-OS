@@ -25,10 +25,10 @@ export default async function MemberAttendancePage({ params }: { params: Promise
           <tbody className="bg-white divide-y divide-gray-200">
             {records.map(record => (
               <tr key={record.id}>
-                <td className="px-6 py-4 text-sm text-gray-900">{record.checkInTime.toLocaleDateString()}</td>
+                <td className="px-6 py-4 text-sm text-gray-900">{record.checkInTime.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</td>
                 <td className="px-6 py-4 text-sm text-gray-500">{record.branch.name}</td>
-                <td className="px-6 py-4 text-sm text-gray-500">{record.checkInTime.toLocaleTimeString()}</td>
-                <td className="px-6 py-4 text-sm text-gray-500">{record.checkOutTime?.toLocaleTimeString() || '-'}</td>
+                <td className="px-6 py-4 text-sm text-gray-500">{record.checkInTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}</td>
+                <td className="px-6 py-4 text-sm text-gray-500">{record.checkOutTime?.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) || '-'}</td>
                 <td className="px-6 py-4 text-sm font-medium">
                   {record.accessDecision === 'ALLOWED' ? <span className="text-green-600">Allowed</span> : <span className="text-red-600">Denied</span>}
                 </td>
