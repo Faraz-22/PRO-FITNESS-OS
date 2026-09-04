@@ -62,7 +62,7 @@ export default async function ReceptionPage() {
                         {record.member.firstName} {record.member.lastName}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {record.checkInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {record.checkInTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1 items-start">

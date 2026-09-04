@@ -153,7 +153,7 @@ export default async function DashboardPage() {
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-muted-foreground">{session.checkInTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                        <p className="text-sm text-muted-foreground">{session.checkInTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute:'2-digit' })}</p>
                       </div>
                     </div>
                   </div>
