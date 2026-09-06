@@ -19,13 +19,21 @@ export function AssignRfidCard({ memberId, currentRfid }: AssignRfidCardProps) {
   const router = useRouter();
 
   const handleSave = async () => {
-    if (!rfid.trim()) {
+    let finalRfid = rfid.trim();
+    
+    if (!finalRfid) {
       toast.add({ title: 'Please enter or scan an RFID card number.', type: 'error' });
       return;
     }
 
+    // Auto-convert 10-digit USB reader output to 24-bit eSSL format
+    if (finalRfid.length === 10 && /^\d+$/.test(finalRfid)) {
+      finalRfid = (Number(finalRfid) % 16777216).toString();
+      setRfid(finalRfid); // Update UI to show the converted number
+    }
+
     setIsLoading(true);
-    const result = await assignRfidCardAction(memberId, rfid.trim());
+    const result = await assignRfidCardAction(memberId, finalRfid);
     setIsLoading(false);
 
     if (result.success) {
