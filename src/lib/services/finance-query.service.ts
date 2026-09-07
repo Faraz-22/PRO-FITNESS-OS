@@ -21,7 +21,10 @@ export const FinanceQueryService = {
     return prisma.invoice.findMany({
       where: {
         status: { in: ['ISSUED', 'OVERDUE', 'PARTIALLY_PAID'] },
-        member: branchId ? { branchId } : {}
+        member: {
+          archivedAt: null,
+          ...(branchId ? { branchId } : {})
+        }
       },
       orderBy: { dueDate: 'asc' },
       take: limit,
@@ -39,7 +42,10 @@ export const FinanceQueryService = {
       where: {
         invoiceNumber: { startsWith: 'SRV-' },
         status: 'PAID',
-        member: branchId ? { branchId } : {}
+        member: {
+          archivedAt: null,
+          ...(branchId ? { branchId } : {})
+        }
       },
       orderBy: { issueDate: 'desc' },
       take: limit,
