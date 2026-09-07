@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { getActiveMembershipPlansAction } from '@/app/actions/member.actions';
 import { renewMembershipCheckoutAction } from '@/app/actions/renewal.actions';
@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 
 export function RenewMembershipButton({ memberId, branchId, previousMembershipId }: { memberId: string, branchId: string, previousMembershipId: string }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [plans, setPlans] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -54,7 +55,9 @@ export function RenewMembershipButton({ memberId, branchId, previousMembershipId
       setShowCheckout(false);
       setOpen(false);
       
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
       return { success: true, invoiceId: result.invoiceId };
     } catch (e) {
       toast.add({ title: 'An error occurred', type: 'error' });
