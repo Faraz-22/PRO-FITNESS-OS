@@ -22,9 +22,14 @@ export default async function MemberWorkspacePage({ params }: { params: Promise<
   const resolvedParams = await params;
   const memberId = resolvedParams.id;
 
-  const staff = await prisma.staffProfile.findUnique({ where: { userId: session.user.id } });
-  
-  const member = await MemberQueryService.getMemberWorkspace(memberId);
+  const [staff, member, posInvoices] = await Promise.all([
+    prisma.staffProfile.findUnique({ where: { userId: session.user.id } }),
+    MemberQueryService.getMemberWorkspace(memberId),
+    prisma.invoice.findMany({
+      where: { memberId, invoiceNumber: { startsWith: 'SRV-' }, status: 'PAID' },
+      include: { items: true }
+    })
+  ]);
 
   if (!member) notFound();
 
@@ -47,11 +52,6 @@ export default async function MemberWorkspacePage({ params }: { params: Promise<
   );
 
   const activeOrFrozen = allMemberships.find(m => m.status === 'ACTIVE' || m.status === 'FROZEN');
-
-  const posInvoices = await prisma.invoice.findMany({
-    where: { memberId: member.id, invoiceNumber: { startsWith: 'SRV-' }, status: 'PAID' },
-    include: { items: true }
-  });
   
   const massageCount = posInvoices.reduce((acc, inv) => acc + inv.items.filter(i => i.description.toLowerCase().includes('massage')).length, 0);
   const steamBathCount = posInvoices.reduce((acc, inv) => acc + inv.items.filter(i => i.description.toLowerCase().includes('steam')).length, 0);
