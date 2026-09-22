@@ -119,7 +119,7 @@ model MemberProfile {
   memberNumber          String                 @unique
   firstName             String
   lastName              String
-  phone                 String?                @unique
+  phone                 String?
   rfidCardNumber        String?                @unique
   dob                   DateTime?
   gender                String?

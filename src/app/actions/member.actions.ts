@@ -104,11 +104,7 @@ export async function createMemberAction(data: MemberFormData) {
       }
     }
 
-    const existingMemberPhone = await prisma.memberProfile.findUnique({ where: { phone: validatedData.phone } });
-    if (existingMemberPhone) {
-      return { success: false, error: 'A member with this phone number already exists' };
-    }
-
+    // Phone uniqueness check removed as per request
     if (validatedData.isCoupleEnrollment) {
       if (validatedData.secondEmail) {
         const existingSecondUser = await prisma.user.findUnique({ where: { email: validatedData.secondEmail } });
@@ -116,12 +112,7 @@ export async function createMemberAction(data: MemberFormData) {
           return { success: false, error: 'A user with the second member\'s email already exists' };
         }
       }
-      if (validatedData.secondPhone) {
-        const existingSecondPhone = await prisma.memberProfile.findUnique({ where: { phone: validatedData.secondPhone } });
-        if (existingSecondPhone) {
-          return { success: false, error: 'A member with the second member\'s phone already exists' };
-        }
-      }
+      // Phone uniqueness check removed for second member
     }
 
     // Generate member serial code: {YY}{4-digit Count} (e.g., 260001)

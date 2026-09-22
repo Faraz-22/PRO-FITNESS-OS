@@ -120,7 +120,7 @@ export async function quickServiceSaleAction({
   let memberId = '';
 
   // 1. Try to find existing member by phone
-  const existingMember = await prisma.memberProfile.findUnique({
+  const existingMember = await prisma.memberProfile.findFirst({
     where: { phone }
   });
 
