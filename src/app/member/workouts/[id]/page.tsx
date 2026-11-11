@@ -8,7 +8,8 @@ import { notFound, redirect } from 'next/navigation';
 import { CheckCircle2, ArrowLeft, Trophy } from 'lucide-react';
 import Link from 'next/link';
 
-export default async function WorkoutExecutionPage({ params }: { params: { id: string } }) {
+export default async function WorkoutExecutionPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await requireRole(Role.MEMBER);
   
   const member = await prisma.memberProfile.findUnique({
@@ -19,7 +20,7 @@ export default async function WorkoutExecutionPage({ params }: { params: { id: s
 
   // Try to find the session
   const workoutSession = await prisma.workoutSession.findUnique({
-    where: { id: params.id, memberId: member.id },
+    where: { id, memberId: member.id },
     include: {
       workoutPlan: true,
       sessionExercises: {

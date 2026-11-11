@@ -6,18 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { convertLeadAction } from '@/app/actions/crm.actions';
 
-export default async function LeadDetailPage({ params }: { params: { id: string } }) {
+export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user) redirect('/login');
 
   try {
-    await requireLeadAccess(params.id);
+    await requireLeadAccess(id);
   } catch (e) {
     return <div>Unauthorized access to lead.</div>;
   }
 
   const lead = await prisma.lead.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       followUps: true,
       statusHistory: { orderBy: { createdAt: 'desc' } }

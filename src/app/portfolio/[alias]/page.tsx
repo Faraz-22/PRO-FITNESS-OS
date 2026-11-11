@@ -1,8 +1,9 @@
 import { PortfolioService } from '@/lib/services/portfolio.service';
 import { notFound } from 'next/navigation';
 
-export default async function PublicPortfolioPage({ params }: { params: { alias: string } }) {
-  const portfolio = await PortfolioService.getPublicPortfolioByAlias(params.alias);
+export default async function PublicPortfolioPage({ params }: { params: Promise<{ alias: string }> }) {
+  const { alias } = await params;
+  const portfolio = await PortfolioService.getPublicPortfolioByAlias(alias);
 
   // Deny if unpublished or missing
   if (!portfolio) {
