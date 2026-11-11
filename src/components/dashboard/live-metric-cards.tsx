@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -12,17 +10,6 @@ interface LiveMetricCardsProps {
 }
 
 export function LiveMetricCards({ activeMembers, todayAttendance }: LiveMetricCardsProps) {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Poll every 30 seconds for live updates
-    const intervalId = setInterval(() => {
-      router.refresh();
-    }, 30000);
-
-    return () => clearInterval(intervalId);
-  }, [router]);
-
   return (
     <>
       <Link href="/staff/members" className="block transition-transform active:scale-95">
@@ -43,7 +30,7 @@ export function LiveMetricCards({ activeMembers, todayAttendance }: LiveMetricCa
           </CardContent>
         </Card>
       </Link>
-      
+
       <Link href="/staff/attendance" className="block transition-transform active:scale-95">
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm shadow-sm hover:border-primary/50 transition-colors h-full cursor-pointer relative overflow-hidden group">
           <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />

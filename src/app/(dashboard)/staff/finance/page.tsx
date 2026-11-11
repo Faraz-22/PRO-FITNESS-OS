@@ -5,45 +5,42 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { FinanceQueryService } from '@/lib/services/finance-query.service';
+import { FinanceQueryService, isSplitInstallmentUrgent } from '@/lib/services/finance-query.service';
 import { Badge } from '@/components/ui/badge';
 import { FileText, IndianRupee, AlertCircle, Clock } from 'lucide-react';
 import { RecordPaymentModal } from './record-payment-modal';
 import { ApprovePaymentButton } from '../members/[id]/approve-payment-button';
-
 import { Input } from '@/components/ui/input';
+import { resolveBranchTimezone } from '@/lib/services/branch-timezone.service';
+import { parseDateBoundaryInTimezone } from '@/lib/services/membership-date.service';
+
+export const dynamic = 'force-dynamic';
 
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const resolvedSearchParams = await searchParams;
-  
+
   const session = await auth();
   if (!session?.user) redirect('/auth/login');
 
   const staff = await prisma.staffProfile.findUnique({ where: { userId: session.user.id } });
   const branchId = staff?.branchId;
+  const timezone = await resolveBranchTimezone(branchId);
 
   const fromParam = typeof resolvedSearchParams.from === 'string' ? resolvedSearchParams.from : undefined;
   const toParam = typeof resolvedSearchParams.to === 'string' ? resolvedSearchParams.to : undefined;
 
-  let startDate: Date | undefined = undefined;
-  let endDate: Date | undefined = undefined;
+  const startDate = parseDateBoundaryInTimezone(fromParam, false, timezone);
+  const endDate = parseDateBoundaryInTimezone(toParam, true, timezone);
 
-  if (fromParam) {
-    startDate = new Date(fromParam);
-  }
-  if (toParam) {
-    endDate = new Date(toParam);
-    endDate.setHours(23, 59, 59, 999);
-  }
-
-  const [todayPayments, pendingInvoices, posInvoices] = await Promise.all([
+  const [todayPayments, pendingInvoices, posInvoices, posTotalToday] = await Promise.all([
     FinanceQueryService.getCollectionBetween(branchId, startDate, endDate),
-    FinanceQueryService.getPendingInvoices(branchId, 10),
-    FinanceQueryService.getPosInvoices(branchId, 10)
+    FinanceQueryService.getPendingInvoices(branchId, 50),
+    FinanceQueryService.getPosInvoices(branchId, 10),
+    FinanceQueryService.getTodayPosTotal(branchId),
   ]);
 
   const todayTotal = todayPayments.reduce((acc, p) => acc + Number(p.amount), 0);
@@ -53,29 +50,22 @@ export default async function FinancePage({
     acc[method] += Number(p.amount);
     return acc;
   }, {} as Record<string, number>);
-  
-  // Calculate today's POS revenue
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const posTotalToday = posInvoices
-    .filter(inv => inv.issueDate && inv.issueDate >= today)
-    .reduce((acc, inv) => acc + Number(inv.totalAmount), 0);
 
-  const splitPayments = pendingInvoices.filter(inv => 
-    inv.dueDate && inv.issueDate && 
-    Math.abs(inv.dueDate.getTime() - inv.issueDate.getTime()) > 24 * 60 * 60 * 1000
+  const splitPayments = pendingInvoices.filter(
+    (inv) =>
+      inv.dueDate &&
+      inv.issueDate &&
+      Math.abs(inv.dueDate.getTime() - inv.issueDate.getTime()) > 24 * 60 * 60 * 1000
   );
 
-  const regularInvoices = pendingInvoices.filter(inv => 
-    !inv.dueDate || !inv.issueDate || 
-    Math.abs(inv.dueDate.getTime() - inv.issueDate.getTime()) <= 24 * 60 * 60 * 1000
+  const regularInvoices = pendingInvoices.filter(
+    (inv) =>
+      !inv.dueDate ||
+      !inv.issueDate ||
+      Math.abs(inv.dueDate.getTime() - inv.issueDate.getTime()) <= 24 * 60 * 60 * 1000
   );
 
-  const urgentSplitPayments = splitPayments.filter(inv => {
-    if (!inv.dueDate) return false;
-    const daysUntilDue = (inv.dueDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
-    return daysUntilDue <= 3;
-  });
+  const urgentSplitPayments = splitPayments.filter((inv) => isSplitInstallmentUrgent(inv.dueDate));
 
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
@@ -85,9 +75,9 @@ export default async function FinancePage({
           <p className="text-sm text-muted-foreground mt-1">Track revenue, payments, and outstanding invoices.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/staff/members">
+          <Link href="/staff/finance/invoices">
             <Button variant="outline" className="border-border text-foreground hover:bg-secondary">
-              Issue Invoice
+              All Invoices
             </Button>
           </Link>
           <Link href="/staff/members">
@@ -140,7 +130,9 @@ export default async function FinancePage({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(todayTotal)}</div>
+            <div className="text-3xl font-semibold text-foreground">
+              {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(todayTotal)}
+            </div>
             <p className="text-xs text-muted-foreground mt-1 mb-4">{todayPayments.length} payments received</p>
 
             {Object.keys(paymentsByMethod).length > 0 && (
@@ -148,14 +140,16 @@ export default async function FinancePage({
                 {Object.entries(paymentsByMethod).sort((a, b) => b[1] - a[1]).map(([method, amount]) => (
                   <div key={method} className="flex justify-between items-center">
                     <span className="text-sm font-medium text-muted-foreground">{method.replace('_', ' ')}</span>
-                    <span className="text-sm font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount as number)}</span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount)}
+                    </span>
                   </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
-        
+
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Quick Services (POS) Today</CardTitle>
@@ -164,7 +158,9 @@ export default async function FinancePage({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(posTotalToday)}</div>
+            <div className="text-3xl font-semibold text-foreground">
+              {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(posTotalToday)}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">Included in Today&apos;s Collection</p>
           </CardContent>
         </Card>
@@ -190,21 +186,37 @@ export default async function FinancePage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {splitPayments.map(inv => {
-                  const pendingAllocation = (inv as any).allocations?.find((a: any) => a.payment.status === 'PENDING');
+                {splitPayments.map((inv) => {
+                  const pendingAllocation = inv.allocations.find((a) => a.payment.status === 'PENDING');
                   const pendingPaymentId = pendingAllocation?.paymentId;
-                  
+
                   return (
                     <TableRow key={inv.id} className="border-border hover:bg-warning/10 transition-colors">
-                      <TableCell className="font-medium text-foreground pl-6 font-mono text-sm">{inv.invoiceNumber}</TableCell>
-                      <TableCell className="text-muted-foreground">{inv.member.firstName} {inv.member.lastName}</TableCell>
-                      <TableCell className="font-medium text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency || 'INR' }).format(Number(inv.amountDue))}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm font-medium">{inv.dueDate?.toLocaleDateString()}</TableCell>
+                      <TableCell className="font-medium text-foreground pl-6 font-mono text-sm">
+                        <Link href={`/staff/finance/invoices/${inv.id}`} className="hover:underline">
+                          {inv.invoiceNumber}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {inv.member.firstName} {inv.member.lastName}
+                      </TableCell>
+                      <TableCell className="font-medium text-foreground">
+                        {new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency || 'INR' }).format(
+                          Number(inv.amountDue)
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm font-medium">
+                        {inv.dueDate?.toLocaleDateString('en-IN', { timeZone: timezone })}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={
-                          inv.status === 'OVERDUE' ? 'bg-danger/10 text-danger border-danger/20 font-medium' : 
-                          'bg-warning/10 text-warning border-warning/20 font-medium'
-                        }>
+                        <Badge
+                          variant="outline"
+                          className={
+                            inv.status === 'OVERDUE'
+                              ? 'bg-danger/10 text-danger border-danger/20 font-medium'
+                              : 'bg-warning/10 text-warning border-warning/20 font-medium'
+                          }
+                        >
                           {inv.status}
                         </Badge>
                         {pendingPaymentId && (
@@ -247,21 +259,37 @@ export default async function FinancePage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {regularInvoices.map(inv => {
-                const pendingAllocation = (inv as any).allocations?.find((a: any) => a.payment.status === 'PENDING');
+              {regularInvoices.map((inv) => {
+                const pendingAllocation = inv.allocations.find((a) => a.payment.status === 'PENDING');
                 const pendingPaymentId = pendingAllocation?.paymentId;
-                
+
                 return (
                   <TableRow key={inv.id} className="border-border hover:bg-secondary/30 transition-colors">
-                    <TableCell className="font-medium text-foreground pl-6 font-mono text-sm">{inv.invoiceNumber}</TableCell>
-                    <TableCell className="text-muted-foreground">{inv.member.firstName} {inv.member.lastName}</TableCell>
-                    <TableCell className="font-medium text-foreground">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency || 'INR' }).format(Number(inv.amountDue))}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{inv.dueDate?.toLocaleDateString()}</TableCell>
+                    <TableCell className="font-medium text-foreground pl-6 font-mono text-sm">
+                      <Link href={`/staff/finance/invoices/${inv.id}`} className="hover:underline">
+                        {inv.invoiceNumber}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {inv.member.firstName} {inv.member.lastName}
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      {new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency || 'INR' }).format(
+                        Number(inv.amountDue)
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {inv.dueDate?.toLocaleDateString('en-IN', { timeZone: timezone })}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={
-                        inv.status === 'OVERDUE' ? 'bg-danger/10 text-danger border-danger/20 font-medium' : 
-                        'bg-warning/10 text-warning border-warning/20 font-medium'
-                      }>
+                      <Badge
+                        variant="outline"
+                        className={
+                          inv.status === 'OVERDUE'
+                            ? 'bg-danger/10 text-danger border-danger/20 font-medium'
+                            : 'bg-warning/10 text-warning border-warning/20 font-medium'
+                        }
+                      >
                         {inv.status}
                       </Badge>
                       {pendingPaymentId && (
@@ -291,6 +319,7 @@ export default async function FinancePage({
           </Table>
         </CardContent>
       </Card>
+
       <Card className="border-border/50 bg-card/50 backdrop-blur-sm shadow-sm overflow-hidden mt-8">
         <CardHeader className="flex flex-row items-center gap-2">
           <div className="p-1.5 bg-primary/10 rounded-md">
@@ -310,18 +339,31 @@ export default async function FinancePage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {posInvoices.map(inv => (
+              {posInvoices.map((inv) => (
                 <TableRow key={inv.id} className="border-border hover:bg-secondary/30 transition-colors">
-                  <TableCell className="font-medium text-foreground pl-6 font-mono text-sm">{inv.invoiceNumber}</TableCell>
-                  <TableCell className="text-muted-foreground">{inv.member.firstName} {inv.member.lastName}</TableCell>
+                  <TableCell className="font-medium text-foreground pl-6 font-mono text-sm">
+                    <Link href={`/print/ticket/${inv.id}`} target="_blank" className="hover:underline text-primary">
+                      {inv.invoiceNumber}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {inv.member.firstName} {inv.member.lastName}
+                  </TableCell>
                   <TableCell className="font-medium text-foreground">
                     {inv.items[0]?.description || 'Quick Service'}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {inv.issueDate?.toLocaleDateString()} {inv.issueDate?.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    {inv.issueDate?.toLocaleDateString('en-IN', { timeZone: timezone })}{' '}
+                    {inv.issueDate?.toLocaleTimeString('en-IN', {
+                      timeZone: timezone,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </TableCell>
                   <TableCell className="pr-6 text-right font-medium text-success">
-                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency || 'INR' }).format(Number(inv.totalAmount))}
+                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency || 'INR' }).format(
+                      Number(inv.totalAmount)
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

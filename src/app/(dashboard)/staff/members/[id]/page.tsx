@@ -14,6 +14,7 @@ import { ResumeMembershipButton } from './resume-membership-button';
 import { MemberQueryService } from '@/lib/services/member-query.service';
 import { SellServiceButton } from './sell-service-button';
 import { AssignRfidCard } from './assign-rfid-card';
+import { EditProfileModal } from './edit-profile-modal';
 
 export default async function MemberWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -106,7 +107,22 @@ export default async function MemberWorkspacePage({ params }: { params: Promise<
         </div>
         <div className="flex gap-2">
           <SellServiceButton memberId={member.id} branchId={member.branchId} />
-          <Button variant="outline" className="border-border">Edit Profile</Button>
+          <EditProfileModal
+            member={{
+              id: member.id,
+              firstName: member.firstName,
+              lastName: member.lastName,
+              email: member.user?.email || '',
+              phone: member.phone || '',
+              gender: member.gender || '',
+              dob: member.dob ? member.dob.toISOString().slice(0, 10) : '',
+              addressLine1: member.addressLine1 || '',
+              city: member.city || '',
+              zipCode: member.zipCode || '',
+              emergencyContactName: member.emergencyContactName || '',
+              emergencyContactPhone: member.emergencyContactPhone || '',
+            }}
+          />
           <RenewMembershipButton 
             memberId={member.id} 
             branchId={member.branchId} 
@@ -143,6 +159,22 @@ export default async function MemberWorkspacePage({ params }: { params: Promise<
                   <div className="grid grid-cols-2 gap-1 pb-3 border-b border-border/50">
                     <span className="text-muted-foreground">Status</span>
                     <span className="font-medium text-right text-foreground">{isActive ? 'Active' : 'Inactive'}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 pb-3 border-b border-border/50">
+                    <span className="text-muted-foreground">Gender</span>
+                    <span className="font-medium text-right text-foreground">{member.gender || 'Not specified'}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 pb-3 border-b border-border/50">
+                    <span className="text-muted-foreground">Date of Birth</span>
+                    <span className="font-medium text-right text-foreground">
+                      {member.dob ? member.dob.toLocaleDateString('en-IN', { timeZone: 'UTC' }) : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 pb-3 border-b border-border/50">
+                    <span className="text-muted-foreground">Address</span>
+                    <span className="font-medium text-right text-foreground">
+                      {[member.addressLine1, member.city, member.zipCode].filter(Boolean).join(', ') || 'N/A'}
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-1 pb-3 border-b border-border/50">
                     <span className="text-muted-foreground">Emergency Contact</span>

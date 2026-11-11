@@ -1,41 +1,93 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, PieChart, Pie, Cell, Legend } from 'recharts';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  CartesianGrid,
+} from 'recharts';
 
 interface ChartProps {
   currentMonthRevenue: { date: string; amount: number }[];
+  monthlyRevenueTotal: number;
+  monthlyPaymentCount: number;
   genderDistribution: { name: string; value: number }[];
   retentionStats: { name: string; value: number }[];
 }
 
 const GENDER_COLORS: Record<string, string> = {
-  Female: '#ec4899', // Pink
-  Male: '#3b82f6',   // Blue
-  Other: '#9ca3af',  // Gray
+  Female: '#ec4899',
+  Male: '#3b82f6',
+  Other: '#9ca3af',
+  'Not specified': '#9ca3af',
 };
 
 const RETENTION_COLORS: Record<string, string> = {
-  'Retained': '#22c55e',    // Green
-  'Not Renewed': '#ef4444', // Red
+  Retained: '#22c55e',
+  'Not Renewed': '#ef4444',
 };
 
-export function DashboardCharts({ currentMonthRevenue, genderDistribution, retentionStats }: ChartProps) {
-  // Format dates for X-axis (e.g., '2026-08-01' -> 'Aug 01')
-  const formattedRevenue = currentMonthRevenue.map(item => {
-    const d = new Date(item.date);
-    return {
-      ...item,
-      displayDate: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    };
+function formatDateLabel(dateKey: string): string {
+  const parts = dateKey.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return dateKey;
+  const [year, month, day] = parts;
+  return new Date(Date.UTC(year!, month! - 1, day!)).toLocaleDateString('en-IN', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
   });
+}
+
+export function DashboardCharts({
+  currentMonthRevenue,
+  monthlyRevenueTotal,
+  monthlyPaymentCount,
+  genderDistribution,
+  retentionStats,
+}: ChartProps) {
+  const formattedRevenue = currentMonthRevenue.map((item) => ({
+    ...item,
+    displayDate: formatDateLabel(item.date),
+  }));
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
       {/* Revenue Chart */}
       <Card className="col-span-4 border-border/50 bg-card/50 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">Monthly Revenue Tracker</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-lg font-medium flex items-center gap-2">
+              Monthly Revenue Tracker
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2 py-0.5 text-[11px] font-medium text-green-500 border border-green-500/20"
+                title="Live graph tracking active"
+              >
+                <span className="flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                Live
+              </span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              {monthlyPaymentCount > 0
+                ? `${monthlyPaymentCount} successful payment${monthlyPaymentCount === 1 ? '' : 's'} this month`
+                : 'No payments recorded yet this month'}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-xl font-semibold text-foreground">
+              {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(
+                monthlyRevenueTotal
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">Month-to-date</p>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-[300px] w-full">
@@ -48,30 +100,45 @@ export function DashboardCharts({ currentMonthRevenue, genderDistribution, reten
                       <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis 
-                    dataKey="displayDate" 
-                    stroke="#888888" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.35} />
+                  <XAxis
+                    dataKey="displayDate"
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <YAxis 
-                    stroke="#888888" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
+                  <YAxis
+                    stroke="#888888"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
                     tickFormatter={(value) => `₹${value}`}
                   />
-                  <RechartsTooltip 
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      borderColor: 'hsl(var(--border))',
+                      borderRadius: '8px',
+                    }}
                     itemStyle={{ color: 'hsl(var(--foreground))' }}
+                    formatter={(value) => [
+                      new Intl.NumberFormat('en-IN', {
+                        style: 'currency',
+                        currency: 'INR',
+                      }).format(Number(value ?? 0)),
+                      'Revenue',
+                    ]}
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="amount" 
-                    stroke="#ef4444" 
-                    fillOpacity={1} 
-                    fill="url(#colorRevenue)" 
+                  <Area
+                    type="monotone"
+                    dataKey="amount"
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: '#ef4444', strokeWidth: 0 }}
+                    activeDot={{ r: 5 }}
+                    fillOpacity={1}
+                    fill="url(#colorRevenue)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -108,8 +175,12 @@ export function DashboardCharts({ currentMonthRevenue, genderDistribution, reten
                         <Cell key={`cell-${index}`} fill={GENDER_COLORS[entry.name] || '#9ca3af'} />
                       ))}
                     </Pie>
-                    <RechartsTooltip 
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                    <RechartsTooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: '8px',
+                      }}
                     />
                     <Legend verticalAlign="bottom" height={36} />
                   </PieChart>

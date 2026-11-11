@@ -1,6 +1,7 @@
 'use server';
 
 import prisma from '@/lib/db/prisma';
+import { revalidatePath } from 'next/cache';
 import { renewMembership } from '@/lib/services/membership-renewal.service';
 import { getActorStaffId } from '@/lib/auth/membership-access';
 
@@ -143,6 +144,11 @@ export async function renewMembershipCheckoutAction(data: {
         amount: amountToPayNow,
       }
     });
+
+    revalidatePath('/staff/members');
+    revalidatePath(`/staff/members/${data.memberId}`);
+    revalidatePath('/staff/finance');
+    revalidatePath('/staff/dashboard');
 
     return { success: true, membershipId: membership.id, invoiceId: invoice.id };
   } catch (error: any) {

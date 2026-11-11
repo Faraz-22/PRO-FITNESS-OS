@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Trash2, Loader2 } from 'lucide-react';
 import { softDeleteMemberAction } from '@/app/actions/member.actions';
@@ -8,6 +9,7 @@ import { toast } from '@/components/ui/toast';
 
 export function MemberActions({ memberId, memberName }: { memberId: string, memberName: string }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const router = useRouter();
 
   const handleDelete = async () => {
     if (window.confirm(`Are you sure you want to delete the member record for ${memberName}? This action cannot be fully undone.`)) {
@@ -16,6 +18,7 @@ export function MemberActions({ memberId, memberName }: { memberId: string, memb
         const res = await softDeleteMemberAction(memberId);
         if (res.success) {
           toast.add({ title: 'Member deleted successfully', type: 'success' });
+          router.refresh();
         } else {
           toast.add({ title: res.error || 'Failed to delete member', type: 'error' });
         }

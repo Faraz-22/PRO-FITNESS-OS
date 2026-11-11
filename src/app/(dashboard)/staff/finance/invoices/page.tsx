@@ -1,4 +1,6 @@
+import { auth } from '@/lib/auth/auth';
 import prisma from '@/lib/db/prisma';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -6,12 +8,45 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Search, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Prisma } from '@prisma/client';
+import { resolveBranchTimezone } from '@/lib/services/branch-timezone.service';
 
-export default async function InvoiceListPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function InvoiceListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const session = await auth();
+  if (!session?.user) redirect('/auth/login');
+
+  const staff = await prisma.staffProfile.findUnique({ where: { userId: session.user.id } });
+  const branchId = staff?.branchId;
+  const timezone = await resolveBranchTimezone(branchId);
+
+  const { q } = await searchParams;
+  const trimmed = q?.trim();
+
+  const whereClause: Prisma.InvoiceWhereInput = {
+    ...(branchId ? { branchId } : {}),
+    ...(trimmed
+      ? {
+          OR: [
+            { invoiceNumber: { contains: trimmed, mode: 'insensitive' } },
+            { member: { firstName: { contains: trimmed, mode: 'insensitive' } } },
+            { member: { lastName: { contains: trimmed, mode: 'insensitive' } } },
+            { member: { memberNumber: { contains: trimmed, mode: 'insensitive' } } },
+          ],
+        }
+      : {}),
+  };
+
   const invoices = await prisma.invoice.findMany({
+    where: whereClause,
     take: 50,
     orderBy: { createdAt: 'desc' },
-    include: { member: true }
+    include: { member: true },
   });
 
   return (
@@ -29,14 +64,21 @@ export default async function InvoiceListPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search invoices..."
-              className="pl-8 w-[250px] bg-card border-border/50 text-foreground focus-visible:ring-primary"
-            />
-          </div>
+          <form action="/staff/finance/invoices" method="GET" className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                name="q"
+                type="search"
+                defaultValue={q}
+                placeholder="Search invoice # or member..."
+                className="pl-8 w-[250px] bg-card border-border/50 text-foreground focus-visible:ring-primary"
+              />
+            </div>
+            <Button type="submit" variant="secondary" size="sm" className="h-9">
+              Search
+            </Button>
+          </form>
         </div>
       </div>
 
@@ -69,16 +111,25 @@ export default async function InvoiceListPage() {
                       {inv.member.firstName} {inv.member.lastName}
                     </Link>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{inv.createdAt.toLocaleDateString()}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {inv.createdAt.toLocaleDateString('en-IN', { timeZone: timezone })}
+                  </TableCell>
                   <TableCell className="font-medium text-foreground text-right">
-                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency || 'INR' }).format(Number(inv.totalAmount))}
+                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: inv.currency || 'INR' }).format(
+                      Number(inv.totalAmount)
+                    )}
                   </TableCell>
                   <TableCell className="pr-6">
-                    <Badge variant="outline" className={
-                      inv.status === 'PAID' ? 'bg-success/10 text-success border-success/20 font-medium' :
-                      inv.status === 'OVERDUE' ? 'bg-danger/10 text-danger border-danger/20 font-medium' :
-                      'bg-warning/10 text-warning border-warning/20 font-medium'
-                    }>
+                    <Badge
+                      variant="outline"
+                      className={
+                        inv.status === 'PAID'
+                          ? 'bg-success/10 text-success border-success/20 font-medium'
+                          : inv.status === 'OVERDUE'
+                          ? 'bg-danger/10 text-danger border-danger/20 font-medium'
+                          : 'bg-warning/10 text-warning border-warning/20 font-medium'
+                      }
+                    >
                       {inv.status}
                     </Badge>
                   </TableCell>

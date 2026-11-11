@@ -46,14 +46,14 @@ export function PlanFormModal({ plan, trigger }: PlanFormModalProps) {
   
   const addBenefit = () => {
     if (benefitInput.trim() !== '') {
-      const currentBenefits = form.getValues('benefits');
+      const currentBenefits = form.getValues('benefits') ?? [];
       form.setValue('benefits', [...currentBenefits, benefitInput.trim()]);
       setBenefitInput('');
     }
   };
 
   const removeBenefit = (index: number) => {
-    const currentBenefits = form.getValues('benefits');
+    const currentBenefits = form.getValues('benefits') ?? [];
     form.setValue('benefits', currentBenefits.filter((_, i) => i !== index));
   };
 
@@ -159,8 +159,9 @@ export function PlanFormModal({ plan, trigger }: PlanFormModalProps) {
               <Select 
                 defaultValue={form.getValues('category')} 
                 onValueChange={(value) => {
+                  if (!value) return;
                   form.setValue('category', value as PlanCategory);
-                  if (value === 'COUPLE' && form.getValues('maxMembers') < 2) {
+                  if (value === 'COUPLE' && Number(form.getValues('maxMembers') ?? 1) < 2) {
                     form.setValue('maxMembers', 2);
                   }
                 }}
@@ -200,7 +201,7 @@ export function PlanFormModal({ plan, trigger }: PlanFormModalProps) {
               <Button type="button" variant="secondary" onClick={addBenefit}>Add</Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
-              {form.watch('benefits').map((benefit, idx) => (
+              {(form.watch('benefits') ?? []).map((benefit, idx) => (
                 <div key={idx} className="flex items-center gap-1 bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-sm">
                   {benefit}
                   <button type="button" onClick={() => removeBenefit(idx)} className="text-muted-foreground hover:text-foreground">

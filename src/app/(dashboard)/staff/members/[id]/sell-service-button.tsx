@@ -46,7 +46,8 @@ export function SellServiceButton({ memberId, branchId }: SellServiceButtonProps
 
   const selectedService = SERVICES.find(s => s.id === selectedServiceId);
 
-  const handleServiceChange = (val: string) => {
+  const handleServiceChange = (val: string | null) => {
+    if (!val) return;
     setSelectedServiceId(val);
     const service = SERVICES.find(s => s.id === val);
     if (service) setCustomPrice(service.price);

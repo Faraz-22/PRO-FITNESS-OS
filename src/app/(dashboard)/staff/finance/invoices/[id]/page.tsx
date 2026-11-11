@@ -1,22 +1,47 @@
 import prisma from '@/lib/db/prisma';
-import { notFound } from 'next/navigation';
+import { auth } from '@/lib/auth/auth';
+import { notFound, redirect } from 'next/navigation';
 import { decryptString } from '@/lib/utils/encryption';
 import { RecordPaymentModal } from '@/components/finance/RecordPaymentModal';
 import Link from 'next/link';
 import { Printer } from 'lucide-react';
 import { ShareWhatsAppButton } from './share-whatsapp-button';
 
-export default async function InvoiceWorkspacePage({ params }: { params: { id: string } }) {
-  const invoice = await prisma.invoice.findUnique({
-    where: { id: params.id },
-    include: {
-      member: true,
-      items: true,
-      allocations: { include: { payment: true } }
-    }
-  });
+export const dynamic = 'force-dynamic';
+
+export default async function InvoiceWorkspacePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const session = await auth();
+  if (!session?.user) redirect('/auth/login');
+
+  const { id } = await params;
+
+  const [staff, invoice] = await Promise.all([
+    prisma.staffProfile.findUnique({ where: { userId: session.user.id } }),
+    prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        branch: true,
+        member: true,
+        items: true,
+        allocations: { include: { payment: true } },
+      },
+    }),
+  ]);
 
   if (!invoice) return notFound();
+
+  if (
+    staff &&
+    staff.branchId !== invoice.branchId &&
+    session.user.role !== 'SUPER_ADMIN' &&
+    session.user.role !== 'ADMIN'
+  ) {
+    return <div className="p-8">Unauthorized: Invoice belongs to another branch</div>;
+  }
 
   return (
     <div className="p-8">
@@ -28,24 +53,24 @@ export default async function InvoiceWorkspacePage({ params }: { params: { id: s
           </span>
         </div>
         <div className="flex gap-3">
-          <ShareWhatsAppButton 
+          <ShareWhatsAppButton
             memberPhone={invoice.member.phone}
             memberName={invoice.member.firstName}
             invoiceNumber={invoice.invoiceNumber}
             amountDue={Number(invoice.amountDue)}
           />
           {Number(invoice.amountDue) > 0 && (
-            <RecordPaymentModal 
+            <RecordPaymentModal
               invoiceId={invoice.id}
               memberId={invoice.memberId}
               branchId={invoice.branchId}
-              branchCode="BR1" // Assuming branch code is needed, maybe fetch from branch
+              branchCode={invoice.branch.code}
               amountDue={Number(invoice.amountDue)}
             />
           )}
-          <Link 
-            href={`/print/invoice/${invoice.id}`} 
-            target="_blank" 
+          <Link
+            href={`/print/invoice/${invoice.id}`}
+            target="_blank"
             className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition"
           >
             <Printer size={18} />
@@ -58,7 +83,9 @@ export default async function InvoiceWorkspacePage({ params }: { params: { id: s
         <div className="grid grid-cols-2 gap-4">
           <div>
             <h3 className="text-gray-500 text-sm">Billed To</h3>
-            <p className="font-medium">{invoice.member.firstName} {invoice.member.lastName}</p>
+            <p className="font-medium">
+              {invoice.member.firstName} {invoice.member.lastName}
+            </p>
           </div>
           <div className="text-right">
             <h3 className="text-gray-500 text-sm">Total Due</h3>
@@ -79,7 +106,7 @@ export default async function InvoiceWorkspacePage({ params }: { params: { id: s
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {invoice.items.map(item => (
+            {invoice.items.map((item) => (
               <tr key={item.id}>
                 <td className="px-6 py-4 text-sm text-gray-900">{item.description}</td>
                 <td className="px-6 py-4 text-sm text-gray-500 text-right">{item.quantity}</td>
@@ -107,18 +134,24 @@ export default async function InvoiceWorkspacePage({ params }: { params: { id: s
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {invoice.allocations.map(allocation => {
+              {invoice.allocations.map((allocation) => {
                 const p = allocation.payment;
                 const ref = p.externalReference ? decryptString(p.externalReference) : '-';
                 const notes = p.notes ? decryptString(p.notes) : '-';
-                
+
                 return (
                   <tr key={allocation.id}>
-                    <td className="px-6 py-4 text-sm text-gray-900">{p.receivedAt.toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{p.paymentMethod} {p.provider ? `(${p.provider})` : ''}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {p.receivedAt.toLocaleDateString('en-IN', { timeZone: invoice.branch.timezone || 'Asia/Kolkata' })}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {p.paymentMethod} {p.provider ? `(${p.provider})` : ''}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{ref}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{notes}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900 text-right">₹{allocation.amount.toString()}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 text-right">
+                      ₹{allocation.amount.toString()}
+                    </td>
                   </tr>
                 );
               })}

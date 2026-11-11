@@ -24,10 +24,9 @@ export default async function PlansPage() {
 
   // Group plans by their base Name (e.g., "Gym Membership", "Platinum", "Gold")
   const groupedPlans = plans.reduce((acc, plan) => {
-    if (!acc[plan.name]) {
-      acc[plan.name] = [];
-    }
-    acc[plan.name].push(plan);
+    const existingGroup = acc[plan.name] ?? [];
+    existingGroup.push(plan);
+    acc[plan.name] = existingGroup;
     return acc;
   }, {} as Record<string, typeof plans>);
 
@@ -86,8 +85,9 @@ export default async function PlansPage() {
             }
 
             // Get benefits from the first plan in the group (they share benefits)
-            const benefits = groupPlans.length > 0 ? groupPlans[0].benefits : [];
-            const category = groupPlans.length > 0 ? groupPlans[0].category : PlanCategory.INDIVIDUAL;
+            const firstPlan = groupPlans[0];
+            const benefits = firstPlan ? firstPlan.benefits : [];
+            const category = firstPlan ? firstPlan.category : PlanCategory.INDIVIDUAL;
 
             return (
               <div key={groupName} className={cardClass}>

@@ -64,11 +64,13 @@ export function QuickServiceModal() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 font-medium">
-          <Zap className="h-4 w-4" /> New Quick Service
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 font-medium">
+            <Zap className="h-4 w-4" /> New Quick Service
+          </Button>
+        }
+      />
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>Quick Service Sale</DialogTitle>
@@ -99,7 +101,7 @@ export function QuickServiceModal() {
 
           <div className="space-y-2">
             <Label>Service <span className="text-danger">*</span></Label>
-            <Select value={serviceName} onValueChange={setServiceName} disabled={loading}>
+            <Select value={serviceName} onValueChange={(val) => setServiceName(val ?? '')} disabled={loading}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a service" />
               </SelectTrigger>

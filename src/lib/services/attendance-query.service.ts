@@ -1,5 +1,6 @@
 import prisma from '@/lib/db/prisma';
-import { startOfDay, endOfDay } from 'date-fns';
+import { resolveBranchTimezone } from './branch-timezone.service';
+import { endOfDayInTimezone, startOfDayInTimezone } from './membership-date.service';
 
 export const AttendanceQueryService = {
   async getAttendanceLog(branchId?: string, limit: number = 100) {
@@ -7,30 +8,32 @@ export const AttendanceQueryService = {
       where: branchId ? { member: { branchId } } : {},
       orderBy: { checkInTime: 'desc' },
       take: limit,
-      include: { member: true }
+      include: { member: true },
     });
   },
 
   async getTodayStats(branchId?: string) {
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
+    const timezone = await resolveBranchTimezone(branchId);
+    const now = new Date();
+    const todayStart = startOfDayInTimezone(now, timezone);
+    const todayEnd = endOfDayInTimezone(now, timezone);
 
     const [todayCount, deniedCount] = await Promise.all([
       prisma.attendanceRecord.count({
         where: {
           checkInTime: { gte: todayStart, lte: todayEnd },
-          member: branchId ? { branchId } : {}
-        }
+          member: branchId ? { branchId } : {},
+        },
       }),
       prisma.attendanceRecord.count({
         where: {
           accessDecision: 'DENIED',
           checkInTime: { gte: todayStart, lte: todayEnd },
-          member: branchId ? { branchId } : {}
-        }
-      })
+          member: branchId ? { branchId } : {},
+        },
+      }),
     ]);
 
     return { todayCount, deniedCount };
-  }
+  },
 };

@@ -103,10 +103,11 @@ export function RecordPaymentModal({
               className="w-full border border-gray-300 rounded-md px-3 py-2"
             >
               <option value="CASH">Cash</option>
-              <option value="CREDIT_CARD">Credit Card</option>
+              <option value="CARD">Card</option>
               <option value="UPI">UPI</option>
               <option value="BANK_TRANSFER">Bank Transfer</option>
-              <option value="CHEQUE">Cheque</option>
+              <option value="ONLINE">Online</option>
+              <option value="OTHER">Other</option>
             </select>
           </div>
 

@@ -1,29 +1,84 @@
 import prisma from '@/lib/db/prisma';
+import { Prisma } from '@prisma/client';
+import { resolveBranchTimezone } from './branch-timezone.service';
+import { parseDateBoundaryInTimezone } from './membership-date.service';
+
+export type MemberSortOption = 'newest' | 'oldest' | 'serial_asc' | 'serial_desc';
+
+export interface MemberDirectoryParams {
+  branchId?: string;
+  page?: number;
+  pageSize?: number;
+  query?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  activePtOnly?: boolean;
+  sort?: MemberSortOption;
+}
+
+export function computePaginationMeta(totalCount: number, page: number, pageSize: number) {
+  const safePageSize = Math.max(1, Math.min(100, pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalCount / safePageSize));
+  const safePage = Math.max(1, Math.min(page, totalPages));
+  const skip = (safePage - 1) * safePageSize;
+  return { page: safePage, pageSize: safePageSize, totalPages, skip };
+}
+
+function getOrderBy(sort: MemberSortOption): Prisma.MemberProfileOrderByWithRelationInput[] {
+  switch (sort) {
+    case 'oldest':
+      return [{ createdAt: 'asc' }, { memberNumber: 'asc' }];
+    case 'serial_asc':
+      return [{ memberNumber: 'asc' }];
+    case 'serial_desc':
+      return [{ memberNumber: 'desc' }];
+    case 'newest':
+    default:
+      return [{ createdAt: 'desc' }, { memberNumber: 'desc' }];
+  }
+}
 
 export const MemberQueryService = {
-  async getMembersDirectory(branchId?: string, take: number = 50, query?: string, dateFrom?: string, dateTo?: string, activePtOnly?: boolean) {
-    const whereClause: any = { archivedAt: null, memberNumber: { not: { startsWith: 'GST' } } };
+  async getMembersDirectory(params: MemberDirectoryParams) {
+    const {
+      branchId,
+      page = 1,
+      pageSize = 50,
+      query,
+      dateFrom,
+      dateTo,
+      activePtOnly = false,
+      sort = 'newest',
+    } = params;
+
+    const timezone = await resolveBranchTimezone(branchId);
+    const whereClause: Prisma.MemberProfileWhereInput = {
+      archivedAt: null,
+      memberNumber: { not: { startsWith: 'GST' } },
+    };
+
     if (branchId) whereClause.branchId = branchId;
-    
-    if (dateFrom || dateTo) {
-      whereClause.createdAt = {};
-      if (dateFrom) whereClause.createdAt.gte = new Date(dateFrom);
-      if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        whereClause.createdAt.lte = toDate;
-      }
+
+    const fromBoundary = parseDateBoundaryInTimezone(dateFrom, false, timezone);
+    const toBoundary = parseDateBoundaryInTimezone(dateTo, true, timezone);
+    if (fromBoundary || toBoundary) {
+      whereClause.createdAt = {
+        ...(fromBoundary ? { gte: fromBoundary } : {}),
+        ...(toBoundary ? { lte: toBoundary } : {}),
+      };
     }
 
-    if (query) {
+    const trimmedQuery = query?.trim();
+    if (trimmedQuery) {
       whereClause.OR = [
-        { firstName: { contains: query, mode: 'insensitive' } },
-        { lastName: { contains: query, mode: 'insensitive' } },
-        { phone: { contains: query } },
-        { memberNumber: { contains: query, mode: 'insensitive' } }
+        { firstName: { contains: trimmedQuery, mode: 'insensitive' } },
+        { lastName: { contains: trimmedQuery, mode: 'insensitive' } },
+        { phone: { contains: trimmedQuery } },
+        { memberNumber: { contains: trimmedQuery, mode: 'insensitive' } },
+        { user: { email: { contains: trimmedQuery, mode: 'insensitive' } } },
       ];
     }
-    
+
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -33,43 +88,50 @@ export const MemberQueryService = {
           status: 'PAID',
           issueDate: { gte: thirtyDaysAgo },
           items: {
-            some: { description: { contains: 'personal training', mode: 'insensitive' } }
-          }
-        }
+            some: { description: { contains: 'personal training', mode: 'insensitive' } },
+          },
+        },
       };
     }
 
-    const now = new Date();
-    return prisma.memberProfile.findMany({
+    const totalCount = await prisma.memberProfile.count({ where: whereClause });
+    const pagination = computePaginationMeta(totalCount, page, pageSize);
+
+    const members = await prisma.memberProfile.findMany({
       where: whereClause,
-      orderBy: { createdAt: 'desc' },
-      take,
+      orderBy: getOrderBy(sort),
+      skip: pagination.skip,
+      take: pagination.pageSize,
       include: {
         user: { select: { email: true } },
         memberships: {
-          where: { 
-            status: 'ACTIVE'
-          },
-          take: 1
+          where: { status: { in: ['ACTIVE', 'FROZEN', 'PENDING_PAYMENT'] } },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
         },
         linkedMemberships: {
-          where: {
-            status: 'ACTIVE'
-          },
-          take: 1
+          where: { status: { in: ['ACTIVE', 'FROZEN', 'PENDING_PAYMENT'] } },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
         },
         invoices: {
           where: {
             status: 'PAID',
             issueDate: { gte: thirtyDaysAgo },
             items: {
-              some: { description: { contains: 'personal training', mode: 'insensitive' } }
-            }
+              some: { description: { contains: 'personal training', mode: 'insensitive' } },
+            },
           },
-          take: 1
-        }
-      }
+          take: 1,
+        },
+      },
     });
+
+    return {
+      members,
+      totalCount,
+      ...pagination,
+    };
   },
 
   async getMemberWorkspace(memberId: string) {
@@ -82,8 +144,8 @@ export const MemberQueryService = {
         invoices: { orderBy: { createdAt: 'desc' }, take: 5 },
         payments: { orderBy: { createdAt: 'desc' }, take: 5 },
         attendances: { orderBy: { checkInTime: 'desc' }, take: 5 },
-        fitnessGoals: { orderBy: { createdAt: 'desc' }, take: 5 }
-      }
+        fitnessGoals: { orderBy: { createdAt: 'desc' }, take: 5 },
+      },
     });
   },
 
@@ -92,8 +154,8 @@ export const MemberQueryService = {
       where: {
         archivedAt: null,
         memberNumber: { not: { startsWith: 'GST' } },
-        ...(branchId ? { branchId } : {})
-      }
+        ...(branchId ? { branchId } : {}),
+      },
     });
-  }
+  },
 };

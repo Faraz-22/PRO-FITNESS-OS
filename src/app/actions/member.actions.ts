@@ -6,6 +6,8 @@ import { auth } from '@/lib/auth/auth';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { Role, PaymentMethod } from '@prisma/client';
+import { generateNextMemberNumbers } from '@/lib/services/member-number.service';
+import { requireBranchAccess } from '@/lib/auth/branch-access';
 
 const memberSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -115,21 +117,27 @@ export async function createMemberAction(data: MemberFormData) {
       // Phone uniqueness check removed for second member
     }
 
-    // Generate member serial code: {YY}{4-digit Count} (e.g., 260001)
-    const currentYearStr = String(new Date().getFullYear()).slice(-2);
-    const count = await prisma.memberProfile.count();
-    const memberNumber = `${currentYearStr}${String(count + 1).padStart(4, '0')}`;
-    let secondMemberNumber = '';
-    if (validatedData.isCoupleEnrollment) {
-      secondMemberNumber = `${currentYearStr}${String(count + 2).padStart(4, '0')}`;
-    }
-
     // Create a temporary password for the member app
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('profitness123', salt); // Default password
 
+    const isCreatingCouplePartner = Boolean(
+      validatedData.isCoupleEnrollment &&
+        validatedData.secondFirstName &&
+        validatedData.secondLastName
+    );
+
     // Transaction to create User and MemberProfile
     const member = await prisma.$transaction(async (tx) => {
+      // Generate collision-free, monotonic member serial codes inside the transaction
+      const allocatedNumbers = await generateNextMemberNumbers(
+        '',
+        isCreatingCouplePartner ? 2 : 1,
+        tx
+      );
+      const memberNumber = allocatedNumbers[0]!;
+      const secondMemberNumber = allocatedNumbers[1] || '';
+
       const user = await tx.user.create({
         data: {
           name: `${validatedData.firstName} ${validatedData.lastName}`,
@@ -159,7 +167,7 @@ export async function createMemberAction(data: MemberFormData) {
       });
 
       let newlyCreatedLinkedMember = null;
-      if (validatedData.isCoupleEnrollment && validatedData.secondFirstName && validatedData.secondLastName) {
+      if (isCreatingCouplePartner && validatedData.secondFirstName && validatedData.secondLastName) {
         const secondUser = await tx.user.create({
           data: {
             name: `${validatedData.secondFirstName} ${validatedData.secondLastName}`,
@@ -176,9 +184,14 @@ export async function createMemberAction(data: MemberFormData) {
             memberNumber: secondMemberNumber,
             firstName: validatedData.secondFirstName,
             lastName: validatedData.secondLastName,
-            phone: validatedData.secondPhone || '',
+            phone: validatedData.secondPhone || null,
             gender: validatedData.secondGender || null,
             dob: validatedData.secondDob ? new Date(validatedData.secondDob) : null,
+            addressLine1: validatedData.addressLine1 || null,
+            city: validatedData.city || null,
+            zipCode: validatedData.zipCode || null,
+            emergencyContactName: validatedData.emergencyContactName || null,
+            emergencyContactPhone: validatedData.emergencyContactPhone || null,
             status: 'ACTIVE',
           }
         });
@@ -324,6 +337,7 @@ export async function createMemberAction(data: MemberFormData) {
 
     revalidatePath('/staff/members');
     revalidatePath('/staff/dashboard');
+    revalidatePath('/staff/finance');
 
     return { success: true, memberId: member.memberProfile.id, invoiceId: member.invoice.id };
   } catch (error: any) {
@@ -340,32 +354,46 @@ export async function approvePaymentAction(paymentId: string) {
     const session = await auth();
     if (!session?.user) return { success: false, error: 'Unauthorized' };
 
-    let membershipToSync: { memberId: string, linkedMemberId?: string | null, branchId: string } | null = null;
+    const existingPayment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      select: { branchId: true, memberId: true },
+    });
+    if (!existingPayment) {
+      return { success: false, error: 'Payment not found' };
+    }
+    await requireBranchAccess(existingPayment.branchId);
 
-    await prisma.$transaction(async (tx) => {
-      const payment = await tx.payment.findUnique({ 
+    const txResult = await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({
         where: { id: paymentId },
-        include: { allocations: { include: { invoice: true } } }
+        include: { allocations: { include: { invoice: true } } },
       });
-      if (!payment) throw new Error("Payment not found");
+      if (!payment) throw new Error('Payment not found');
 
-      await tx.payment.update({
-        where: { id: paymentId },
-        data: { status: 'SUCCESS' }
-      });
+      if (payment.status === 'PENDING') {
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: { status: 'SUCCESS', receivedAt: new Date() },
+        });
+      }
+
+      let membershipToSync: {
+        memberId: string;
+        linkedMemberId?: string | null;
+        branchId: string;
+      } | null = null;
 
       const allocation = payment.allocations[0];
       if (allocation && allocation.invoice) {
         const invoice = allocation.invoice;
-        
+
         const allAllocations = await tx.paymentAllocation.findMany({
           where: { invoiceId: invoice.id },
-          include: { payment: true }
+          include: { payment: true },
         });
-        
+
         let totalPaid = 0;
         for (const a of allAllocations) {
-          // Include the payment we just approved (since it might not reflect in the DB immediately depending on tx isolation)
           if (a.payment.status === 'SUCCESS' || a.payment.id === paymentId) {
             totalPaid += Number(a.amount);
           }
@@ -376,40 +404,136 @@ export async function approvePaymentAction(paymentId: string) {
 
         await tx.invoice.update({
           where: { id: invoice.id },
-          data: { 
+          data: {
             status: newStatus,
             amountPaid: totalPaid,
-            amountDue: amountDue
-          }
+            amountDue,
+          },
         });
 
         // Activate membership when payment is approved, even if partially paid (first installment)
         if (invoice.membershipId) {
-           const membership = await tx.membership.update({
-             where: { id: invoice.membershipId },
-             data: { status: 'ACTIVE' }
-           });
-           
-           membershipToSync = { memberId: membership.memberId, linkedMemberId: membership.linkedMemberId, branchId: membership.branchId };
+          const membership = await tx.membership.update({
+            where: { id: invoice.membershipId },
+            data: { status: 'ACTIVE' },
+          });
+
+          membershipToSync = {
+            memberId: membership.memberId,
+            linkedMemberId: membership.linkedMemberId,
+            branchId: membership.branchId,
+          };
         }
       }
+
+      return { membershipToSync, memberId: payment.memberId };
     });
 
-    if (membershipToSync) {
+    if (txResult.membershipToSync) {
       // Grant physical access outside the transaction to prevent deadlocks
       const { MemberAccessSyncService } = await import('@/lib/services/member-access-sync.service');
-      await MemberAccessSyncService.queueMemberAccessSync(membershipToSync.memberId, membershipToSync.branchId, true);
-      if (membershipToSync.linkedMemberId) {
-        await MemberAccessSyncService.queueMemberAccessSync(membershipToSync.linkedMemberId, membershipToSync.branchId, true);
+      await MemberAccessSyncService.queueMemberAccessSync(
+        txResult.membershipToSync.memberId,
+        txResult.membershipToSync.branchId,
+        true
+      );
+      if (txResult.membershipToSync.linkedMemberId) {
+        await MemberAccessSyncService.queueMemberAccessSync(
+          txResult.membershipToSync.linkedMemberId,
+          txResult.membershipToSync.branchId,
+          true
+        );
       }
     }
 
     revalidatePath('/staff/members');
+    revalidatePath(`/staff/members/${txResult.memberId}`);
+    revalidatePath('/staff/dashboard');
+    revalidatePath('/staff/finance');
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to approve payment' };
+  }
+}
+
+const updateMemberProfileSchema = z.object({
+  memberId: z.string().min(1),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits').optional().or(z.literal('')),
+  gender: z.string().optional().or(z.literal('')),
+  dob: z.string().optional().or(z.literal('')),
+  addressLine1: z.string().optional().or(z.literal('')),
+  city: z.string().optional().or(z.literal('')),
+  zipCode: z.string().optional().or(z.literal('')),
+  emergencyContactName: z.string().optional().or(z.literal('')),
+  emergencyContactPhone: z.string().optional().or(z.literal('')),
+});
+
+export type UpdateMemberProfileInput = z.infer<typeof updateMemberProfileSchema>;
+
+export async function updateMemberProfileAction(data: UpdateMemberProfileInput) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+    const validated = updateMemberProfileSchema.parse(data);
+
+    const existingMember = await prisma.memberProfile.findUnique({
+      where: { id: validated.memberId },
+      include: { user: true },
+    });
+    if (!existingMember) return { success: false, error: 'Member not found' };
+
+    await requireBranchAccess(existingMember.branchId);
+
+    const normalizedEmail = validated.email?.trim().toLowerCase();
+    if (normalizedEmail && normalizedEmail !== existingMember.user.email.toLowerCase()) {
+      const conflictingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+      if (conflictingUser && conflictingUser.id !== existingMember.userId) {
+        return { success: false, error: 'Another user with this email already exists' };
+      }
+    }
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: existingMember.userId },
+        data: {
+          name: `${validated.firstName.trim()} ${validated.lastName.trim()}`,
+          ...(normalizedEmail ? { email: normalizedEmail } : {}),
+        },
+      }),
+      prisma.memberProfile.update({
+        where: { id: existingMember.id },
+        data: {
+          firstName: validated.firstName.trim(),
+          lastName: validated.lastName.trim(),
+          phone: validated.phone?.trim() || null,
+          gender: validated.gender?.trim() || null,
+          dob: validated.dob ? new Date(validated.dob) : null,
+          addressLine1: validated.addressLine1?.trim() || null,
+          city: validated.city?.trim() || null,
+          zipCode: validated.zipCode?.trim() || null,
+          emergencyContactName: validated.emergencyContactName?.trim() || null,
+          emergencyContactPhone: validated.emergencyContactPhone?.trim() || null,
+        },
+      }),
+    ]);
+
+    revalidatePath('/staff/members');
+    revalidatePath(`/staff/members/${existingMember.id}`);
     revalidatePath('/staff/dashboard');
 
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error.message || "Failed to approve payment" };
+    if (error && typeof error === 'object' && 'issues' in error && Array.isArray(error.issues)) {
+      return { success: false, error: error.issues[0]?.message || 'Validation error' };
+    }
+    return { success: false, error: error.message || 'Failed to update member profile' };
   }
 }
 

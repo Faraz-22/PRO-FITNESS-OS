@@ -59,11 +59,13 @@ export function EditCouponModal({ coupon, branchId }: { coupon: any, branchId: s
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary">
-          <Edit2 className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary">
+            <Edit2 className="h-4 w-4" />
+          </Button>
+        }
+      />
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Discount Coupon</DialogTitle>

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth/auth';
 import { PaymentMethod, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { generateNextMemberNumbers } from '@/lib/services/member-number.service';
 
 export async function sellServiceAction({
   memberId,
@@ -91,6 +92,10 @@ export async function sellServiceAction({
     });
 
     revalidatePath(`/staff/members/${memberId}`);
+    revalidatePath('/staff/members');
+    revalidatePath('/staff/finance');
+    revalidatePath('/staff/dashboard');
+    revalidatePath('/staff/quick-service');
     return { success: true, invoiceId: invoice.id };
   });
 }
@@ -119,46 +124,45 @@ export async function quickServiceSaleAction({
 
   let memberId = '';
 
-  // 1. Try to find existing member by phone
+  // 1. Try to find existing member by phone (exclude archived profiles)
   const existingMember = await prisma.memberProfile.findFirst({
-    where: { phone }
+    where: { phone, archivedAt: null }
   });
 
   if (existingMember) {
     memberId = existingMember.id;
   } else {
-    // 2. Create a GUEST member if not found
-    const currentYearStr = String(new Date().getFullYear()).slice(-2);
-    const count = await prisma.memberProfile.count();
-    const memberNumber = `GST${currentYearStr}${String(count + 1).padStart(4, '0')}`;
-
+    // 2. Create a GUEST member if not found using isolated GST sequence
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('guest123', salt);
 
-    const [firstName, ...lastNameParts] = name.split(' ');
+    const [firstName, ...lastNameParts] = name.trim().split(/\s+/);
     const lastName = lastNameParts.join(' ') || 'Guest';
 
-    const guestUser = await prisma.user.create({
-      data: {
-        name,
-        email: `guest_${memberNumber}@profitness.local`,
-        hashedPassword,
-        role: Role.MEMBER,
-      }
+    const newGuest = await prisma.$transaction(async (tx) => {
+      const [memberNumber] = await generateNextMemberNumbers('GST', 1, tx);
+      const guestUser = await tx.user.create({
+        data: {
+          name,
+          email: `guest_${memberNumber}@profitness.local`,
+          hashedPassword,
+          role: Role.MEMBER,
+        }
+      });
+
+      return tx.memberProfile.create({
+        data: {
+          userId: guestUser.id,
+          branchId: staff.branchId,
+          memberNumber: memberNumber!,
+          firstName: firstName || 'Guest',
+          lastName,
+          phone,
+          status: 'INACTIVE', // Guest doesn't have active membership
+        }
+      });
     });
 
-    const newGuest = await prisma.memberProfile.create({
-      data: {
-        userId: guestUser.id,
-        branchId: staff.branchId,
-        memberNumber,
-        firstName: firstName || 'Guest',
-        lastName: lastName,
-        phone,
-        status: 'INACTIVE', // Guest doesn't have active membership
-      }
-    });
-    
     memberId = newGuest.id;
   }
 
@@ -222,7 +226,10 @@ export async function quickServiceSaleAction({
       }
     });
 
-    revalidatePath(`/staff/finance`);
+    revalidatePath('/staff/finance');
+    revalidatePath('/staff/dashboard');
+    revalidatePath('/staff/quick-service');
+    revalidatePath(`/staff/members/${memberId}`);
     return { success: true, invoiceId: invoice.id, memberId };
   });
 }
