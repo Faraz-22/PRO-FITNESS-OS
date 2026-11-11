@@ -1,12 +1,27 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth/auth';
 import prisma from '@/lib/db/prisma';
 import bcrypt from 'bcryptjs';
 
-export async function GET() {
-  try {
-    console.log('Seeding database for dashboard...');
+export const dynamic = 'force-dynamic';
 
-    // 1. Create a Branch
+export async function POST() {
+  if (
+    process.env.NODE_ENV === 'production' ||
+    process.env.ALLOW_DANGEROUS_TEST_ENDPOINTS !== 'true'
+  ) {
+    return NextResponse.json(
+      { success: false, error: 'Database seed endpoint is disabled' },
+      { status: 403 }
+    );
+  }
+
+  const session = await auth();
+  if (!session?.user || session.user.role !== 'SUPER_ADMIN') {
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+
+  try {
     const branch = await prisma.branch.upsert({
       where: { code: 'MAIN' },
       update: {},
@@ -19,7 +34,6 @@ export async function GET() {
       },
     });
 
-    // 2. Create Admin User
     const hashedPassword = await bcrypt.hash('password123', 12);
     const adminUser = await prisma.user.upsert({
       where: { email: 'admin@profitness.com' },
@@ -32,7 +46,6 @@ export async function GET() {
       },
     });
 
-    // 3. Create Staff Profile for Admin
     await prisma.staffProfile.upsert({
       where: { userId: adminUser.id },
       update: {},
@@ -46,7 +59,6 @@ export async function GET() {
       },
     });
 
-    // 4. Create some Mock Members
     for (let i = 1; i <= 5; i++) {
       const email = `member${i}@example.com`;
       const user = await prisma.user.upsert({
@@ -56,7 +68,7 @@ export async function GET() {
           email,
           name: `Member ${i}`,
           role: 'MEMBER',
-          hashedPassword
+          hashedPassword,
         },
       });
 
@@ -73,7 +85,6 @@ export async function GET() {
         },
       });
 
-      // Create active membership for member
       const plan = await prisma.membershipPlan.upsert({
         where: { branchId_code: { branchId: branch.id, code: 'BASIC_MONTHLY' } },
         update: {},
@@ -84,12 +95,11 @@ export async function GET() {
           durationDays: 30,
           price: 3000,
           planType: 'MONTHLY',
-        }
+        },
       });
 
-      // Avoid creating duplicates if run twice
       const existingMembership = await prisma.membership.findFirst({
-        where: { memberId: member.id, status: 'ACTIVE' }
+        where: { memberId: member.id, status: 'ACTIVE' },
       });
 
       if (!existingMembership) {
@@ -105,11 +115,10 @@ export async function GET() {
             durationDaysSnapshot: plan.durationDays,
             basePrice: plan.price,
             finalAmount: plan.price,
-            createdBySystem: true
-          }
+            createdBySystem: true,
+          },
         });
 
-        // Create a payment
         await prisma.payment.create({
           data: {
             memberId: member.id,
@@ -117,19 +126,18 @@ export async function GET() {
             amount: plan.price,
             paymentMethod: 'CARD',
             status: 'SUCCESS',
-            receivedAt: new Date()
-          }
+            receivedAt: new Date(),
+          },
         });
 
-        // Create attendance for today
         await prisma.attendanceRecord.create({
           data: {
             memberId: member.id,
             branchId: branch.id,
             checkInTime: new Date(),
             method: 'BIOMETRIC',
-            accessDecision: 'ALLOWED'
-          }
+            accessDecision: 'ALLOWED',
+          },
         });
       }
     }
@@ -139,4 +147,11 @@ export async function GET() {
     console.error(error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { success: false, error: 'GET method is disabled for seed endpoint' },
+    { status: 403 }
+  );
 }

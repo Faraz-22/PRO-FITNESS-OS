@@ -8,6 +8,10 @@ import bcrypt from 'bcryptjs';
 import { Role, PaymentMethod } from '@prisma/client';
 import { generateNextMemberNumbers } from '@/lib/services/member-number.service';
 import { requireBranchAccess } from '@/lib/auth/branch-access';
+import {
+  recoverMemberEmail,
+  recoverOriginalPhone,
+} from '@/lib/services/member-recovery.service';
 
 const memberSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -547,17 +551,22 @@ export async function softDeleteMemberAction(memberId: string) {
       return { success: false, error: 'You do not have permission to delete members.' };
     }
 
-    const member = await prisma.memberProfile.findUnique({ where: { id: memberId } });
+    const member = await prisma.memberProfile.findUnique({
+      where: { id: memberId },
+      include: { user: { select: { email: true } } },
+    });
     if (!member) return { success: false, error: 'Member not found' };
 
+    await requireBranchAccess(member.branchId);
+
     const timestamp = Date.now();
-    
+
     await prisma.$transaction([
       prisma.user.update({
         where: { id: member.userId },
         data: {
-          email: `deleted_${timestamp}_${member.userId}@profitness.local`
-        }
+          email: `deleted_${timestamp}_${member.userId}@profitness.local`,
+        },
       }),
       prisma.memberProfile.update({
         where: { id: memberId },
@@ -565,17 +574,191 @@ export async function softDeleteMemberAction(memberId: string) {
           archivedAt: new Date(),
           archivedBy: session.user.id,
           status: 'INACTIVE',
-          phone: `del_${timestamp}_${member.phone}`
-        }
-      })
+          phone: `del_${timestamp}_${member.phone}`,
+        },
+      }),
+      prisma.businessActivityLog.create({
+        data: {
+          entityType: 'MEMBER',
+          entityId: member.id,
+          action: 'MEMBER_SOFT_DELETED',
+          actorId: session.user.id,
+          branchId: member.branchId,
+          changes: {
+            memberNumber: member.memberNumber,
+            previousEmail: member.user.email,
+            previousPhone: member.phone,
+          },
+        },
+      }),
     ]);
 
     revalidatePath('/staff/members');
     revalidatePath('/staff/dashboard');
+    revalidatePath('/staff/finance');
 
     return { success: true };
   } catch (error: any) {
     console.error('Error soft deleting member:', error);
     return { success: false, error: 'Failed to delete member' };
+  }
+}
+
+async function restoreSingleMemberRecord(memberId: string, actorUserId: string) {
+  const member = await prisma.memberProfile.findUnique({
+    where: { id: memberId },
+    include: {
+      user: { select: { id: true, email: true } },
+      memberships: { where: { status: 'ACTIVE' }, take: 1 },
+    },
+  });
+
+  if (!member) {
+    throw new Error('Member not found');
+  }
+
+  await requireBranchAccess(member.branchId);
+
+  const deletionLog = await prisma.businessActivityLog.findFirst({
+    where: {
+      entityType: 'MEMBER',
+      entityId: member.id,
+      action: 'MEMBER_SOFT_DELETED',
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { changes: true },
+  });
+
+  const loggedChanges =
+    deletionLog?.changes && typeof deletionLog.changes === 'object'
+      ? (deletionLog.changes as { previousEmail?: string | null })
+      : undefined;
+
+  const recoveredPhone = recoverOriginalPhone(member.phone);
+  let recoveredEmail = recoverMemberEmail(
+    member.user.email,
+    member.memberNumber,
+    loggedChanges?.previousEmail
+  );
+
+  if (recoveredEmail !== member.user.email) {
+    const conflict = await prisma.user.findUnique({
+      where: { email: recoveredEmail },
+      select: { id: true },
+    });
+    if (conflict && conflict.id !== member.userId) {
+      recoveredEmail = `restored_${member.memberNumber}_${Date.now()}@profitness.local`;
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: member.userId },
+      data: { email: recoveredEmail },
+    }),
+    prisma.memberProfile.update({
+      where: { id: member.id },
+      data: {
+        archivedAt: null,
+        archivedBy: null,
+        status: 'ACTIVE',
+        phone: recoveredPhone,
+      },
+    }),
+    prisma.businessActivityLog.create({
+      data: {
+        entityType: 'MEMBER',
+        entityId: member.id,
+        action: 'MEMBER_RESTORED',
+        actorId: actorUserId,
+        branchId: member.branchId,
+        changes: {
+          memberNumber: member.memberNumber,
+          restoredEmail: recoveredEmail,
+          restoredPhone: recoveredPhone,
+        },
+      },
+    }),
+  ]);
+
+  if (member.memberships.length > 0) {
+    const { MemberAccessSyncService } = await import('@/lib/services/member-access-sync.service');
+    await MemberAccessSyncService.queueMemberAccessSync(member.id, member.branchId, true);
+  }
+
+  return member;
+}
+
+export async function restoreMemberAction(memberId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+    if (session.user.role !== 'MANAGER' && session.user.role !== 'SUPER_ADMIN') {
+      return { success: false, error: 'You do not have permission to restore members.' };
+    }
+
+    const member = await restoreSingleMemberRecord(memberId, session.user.id);
+
+    revalidatePath('/staff/members');
+    revalidatePath(`/staff/members/${member.id}`);
+    revalidatePath('/staff/dashboard');
+    revalidatePath('/staff/finance');
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to restore member' };
+  }
+}
+
+export async function restoreAllArchivedMembersAction() {
+  try {
+    const session = await auth();
+    if (!session?.user) return { success: false, error: 'Unauthorized' };
+
+    if (session.user.role !== 'MANAGER' && session.user.role !== 'SUPER_ADMIN') {
+      return { success: false, error: 'You do not have permission to restore members.' };
+    }
+
+    const staff = await prisma.staffProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { branchId: true },
+    });
+
+    const branchScope =
+      session.user.role === 'SUPER_ADMIN' && !staff?.branchId
+        ? {}
+        : { branchId: staff?.branchId || '__NO_BRANCH__' };
+
+    const archivedMembers = await prisma.memberProfile.findMany({
+      where: {
+        AND: [
+          { memberNumber: { not: { startsWith: 'GST' } } },
+          branchScope,
+          {
+            OR: [
+              { archivedAt: { not: null } },
+              { phone: { startsWith: 'del_' } },
+              { user: { email: { startsWith: 'deleted_' } } },
+            ],
+          },
+        ],
+      },
+      select: { id: true },
+    });
+
+    let restoredCount = 0;
+    for (const item of archivedMembers) {
+      await restoreSingleMemberRecord(item.id, session.user.id);
+      restoredCount += 1;
+    }
+
+    revalidatePath('/staff/members');
+    revalidatePath('/staff/dashboard');
+    revalidatePath('/staff/finance');
+
+    return { success: true, restoredCount };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to restore archived members' };
   }
 }

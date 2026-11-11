@@ -13,8 +13,17 @@ export interface MemberDirectoryParams {
   dateFrom?: string;
   dateTo?: string;
   activePtOnly?: boolean;
+  archivedOnly?: boolean;
   sort?: MemberSortOption;
 }
+
+const ARCHIVED_OR_ANONYMIZED_FILTER: Prisma.MemberProfileWhereInput = {
+  OR: [
+    { archivedAt: { not: null } },
+    { phone: { startsWith: 'del_' } },
+    { user: { email: { startsWith: 'deleted_' } } },
+  ],
+};
 
 export function computePaginationMeta(totalCount: number, page: number, pageSize: number) {
   const safePageSize = Math.max(1, Math.min(100, pageSize));
@@ -48,51 +57,67 @@ export const MemberQueryService = {
       dateFrom,
       dateTo,
       activePtOnly = false,
+      archivedOnly = false,
       sort = 'newest',
     } = params;
 
     const timezone = await resolveBranchTimezone(branchId);
-    const whereClause: Prisma.MemberProfileWhereInput = {
-      archivedAt: null,
-      memberNumber: { not: { startsWith: 'GST' } },
-    };
+    const andConditions: Prisma.MemberProfileWhereInput[] = [
+      { memberNumber: { not: { startsWith: 'GST' } } },
+    ];
 
-    if (branchId) whereClause.branchId = branchId;
+    if (archivedOnly) {
+      andConditions.push(ARCHIVED_OR_ANONYMIZED_FILTER);
+    } else {
+      andConditions.push({ archivedAt: null });
+    }
+
+    if (branchId) {
+      andConditions.push({ branchId });
+    }
 
     const fromBoundary = parseDateBoundaryInTimezone(dateFrom, false, timezone);
     const toBoundary = parseDateBoundaryInTimezone(dateTo, true, timezone);
     if (fromBoundary || toBoundary) {
-      whereClause.createdAt = {
-        ...(fromBoundary ? { gte: fromBoundary } : {}),
-        ...(toBoundary ? { lte: toBoundary } : {}),
-      };
+      andConditions.push({
+        createdAt: {
+          ...(fromBoundary ? { gte: fromBoundary } : {}),
+          ...(toBoundary ? { lte: toBoundary } : {}),
+        },
+      });
     }
 
     const trimmedQuery = query?.trim();
     if (trimmedQuery) {
-      whereClause.OR = [
-        { firstName: { contains: trimmedQuery, mode: 'insensitive' } },
-        { lastName: { contains: trimmedQuery, mode: 'insensitive' } },
-        { phone: { contains: trimmedQuery } },
-        { memberNumber: { contains: trimmedQuery, mode: 'insensitive' } },
-        { user: { email: { contains: trimmedQuery, mode: 'insensitive' } } },
-      ];
+      andConditions.push({
+        OR: [
+          { firstName: { contains: trimmedQuery, mode: 'insensitive' } },
+          { lastName: { contains: trimmedQuery, mode: 'insensitive' } },
+          { phone: { contains: trimmedQuery } },
+          { memberNumber: { contains: trimmedQuery, mode: 'insensitive' } },
+          { user: { email: { contains: trimmedQuery, mode: 'insensitive' } } },
+        ],
+      });
     }
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     if (activePtOnly) {
-      whereClause.invoices = {
-        some: {
-          status: 'PAID',
-          issueDate: { gte: thirtyDaysAgo },
-          items: {
-            some: { description: { contains: 'personal training', mode: 'insensitive' } },
+      andConditions.push({
+        invoices: {
+          some: {
+            status: 'PAID',
+            issueDate: { gte: thirtyDaysAgo },
+            items: {
+              some: { description: { contains: 'personal training', mode: 'insensitive' } },
+            },
           },
         },
-      };
+      });
     }
+
+    const whereClause: Prisma.MemberProfileWhereInput = { AND: andConditions };
 
     const totalCount = await prisma.memberProfile.count({ where: whereClause });
     const pagination = computePaginationMeta(totalCount, page, pageSize);
@@ -155,6 +180,18 @@ export const MemberQueryService = {
         archivedAt: null,
         memberNumber: { not: { startsWith: 'GST' } },
         ...(branchId ? { branchId } : {}),
+      },
+    });
+  },
+
+  async getArchivedMembersCount(branchId?: string) {
+    return prisma.memberProfile.count({
+      where: {
+        AND: [
+          { memberNumber: { not: { startsWith: 'GST' } } },
+          ARCHIVED_OR_ANONYMIZED_FILTER,
+          ...(branchId ? [{ branchId }] : []),
+        ],
       },
     });
   },

@@ -12,6 +12,7 @@ import {
   formatMemberNumber,
 } from '@/lib/services/member-number.service';
 import { computePaginationMeta } from '@/lib/services/member-query.service';
+import { recoverMemberEmail, recoverOriginalPhone } from '@/lib/services/member-recovery.service';
 import { recordPaymentSchema } from '@/lib/validations/finance.schema';
 
 describe('Branch Timezone & Dashboard Revenue Timeline', () => {
@@ -148,6 +149,49 @@ describe('Dashboard API Route Authorization & Metrics Integration', () => {
     const body = await res200.json();
     expect(body.monthlyRevenueTotal).toBe(4500);
     expect(getExecutiveMetricsMock).toHaveBeenCalledWith('branch-1');
+  });
+});
+
+describe('Soft-Deleted Member Recovery & Wipe Endpoint Protection', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('recovers original phone and email from soft-deleted prefixes cleanly', () => {
+    expect(recoverOriginalPhone('del_1787412345678_9876543210')).toBe('9876543210');
+    expect(recoverOriginalPhone('del_1787412345678_null')).toBeNull();
+    expect(recoverOriginalPhone('9876543210')).toBe('9876543210');
+    expect(recoverOriginalPhone(null)).toBeNull();
+
+    expect(
+      recoverMemberEmail('deleted_1787412345678_user1@profitness.local', '260001')
+    ).toBe('temp_260001@profitness.local');
+    expect(
+      recoverMemberEmail(
+        'deleted_1787412345678_user1@profitness.local',
+        '260001',
+        'real.member@example.com'
+      )
+    ).toBe('real.member@example.com');
+    expect(recoverMemberEmail('already@example.com', '260001')).toBe('already@example.com');
+  });
+
+  it('blocks GET and unauthenticated/production POST requests to /api/wipe and /api/seed', async () => {
+    vi.doMock('@/lib/auth/auth', () => ({ auth: vi.fn().mockResolvedValue(null) }));
+    vi.doMock('@/lib/db/prisma', () => ({ default: {} }));
+
+    const wipeRoute = await import('@/app/api/wipe/route');
+    const seedRoute = await import('@/app/api/seed/route');
+
+    const wipeGet = await wipeRoute.GET();
+    const wipePost = await wipeRoute.POST();
+    const seedGet = await seedRoute.GET();
+    const seedPost = await seedRoute.POST();
+
+    expect(wipeGet.status).toBe(403);
+    expect(wipePost.status).toBe(403);
+    expect(seedGet.status).toBe(403);
+    expect(seedPost.status).toBe(403);
   });
 });
 
