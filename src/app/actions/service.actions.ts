@@ -6,6 +6,11 @@ import { auth } from '@/lib/auth/auth';
 import { PaymentMethod, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { generateNextMemberNumbers } from '@/lib/services/member-number.service';
+import {
+  acquireMemberPhoneLock,
+  findActiveMemberByPhone,
+  normalizeMemberPhone,
+} from '@/lib/services/member-phone.service';
 
 export async function sellServiceAction({
   memberId,
@@ -122,24 +127,23 @@ export async function quickServiceSaleAction({
 
   if (!staff) throw new Error('Staff profile not found');
 
-  let memberId = '';
+  const normalizedPhone = normalizeMemberPhone(phone);
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash('guest123', salt);
+  const [firstName, ...lastNameParts] = name.trim().split(/\s+/);
+  const lastName = lastNameParts.join(' ') || 'Guest';
 
-  // 1. Try to find existing member by phone (exclude archived profiles)
-  const existingMember = await prisma.memberProfile.findFirst({
-    where: { phone, archivedAt: null }
-  });
+  const timestamp = Date.now().toString().slice(-6);
+  const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
+  const invoiceNumber = `SRV-${timestamp}-${randomStr}`;
 
-  if (existingMember) {
-    memberId = existingMember.id;
-  } else {
-    // 2. Create a GUEST member if not found using isolated GST sequence
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('guest123', salt);
+  return prisma.$transaction(async (tx) => {
+    await acquireMemberPhoneLock(tx, normalizedPhone);
 
-    const [firstName, ...lastNameParts] = name.trim().split(/\s+/);
-    const lastName = lastNameParts.join(' ') || 'Guest';
+    const existingMember = await findActiveMemberByPhone(tx, normalizedPhone);
+    let memberId = existingMember?.id || '';
 
-    const newGuest = await prisma.$transaction(async (tx) => {
+    if (!memberId) {
       const [memberNumber] = await generateNextMemberNumbers('GST', 1, tx);
       const guestUser = await tx.user.create({
         data: {
@@ -147,31 +151,24 @@ export async function quickServiceSaleAction({
           email: `guest_${memberNumber}@profitness.local`,
           hashedPassword,
           role: Role.MEMBER,
-        }
+        },
       });
 
-      return tx.memberProfile.create({
+      const newGuest = await tx.memberProfile.create({
         data: {
           userId: guestUser.id,
           branchId: staff.branchId,
           memberNumber: memberNumber!,
           firstName: firstName || 'Guest',
           lastName,
-          phone,
+          phone: normalizedPhone,
           status: 'INACTIVE', // Guest doesn't have active membership
-        }
+        },
       });
-    });
 
-    memberId = newGuest.id;
-  }
+      memberId = newGuest.id;
+    }
 
-  // 3. Perform the sale using existing logic pattern
-  const timestamp = Date.now().toString().slice(-6);
-  const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
-  const invoiceNumber = `SRV-${timestamp}-${randomStr}`;
-
-  return prisma.$transaction(async (tx) => {
     const invoice = await tx.invoice.create({
       data: {
         invoiceNumber,

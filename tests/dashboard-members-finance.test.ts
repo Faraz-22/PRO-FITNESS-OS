@@ -13,6 +13,12 @@ import {
 } from '@/lib/services/member-number.service';
 import { computePaginationMeta } from '@/lib/services/member-query.service';
 import { recoverMemberEmail, recoverOriginalPhone } from '@/lib/services/member-recovery.service';
+import {
+  assertUniqueMemberPhone,
+  buildPhoneLookupCandidates,
+  DuplicateMemberPhoneError,
+  normalizeMemberPhone,
+} from '@/lib/services/member-phone.service';
 import { recordPaymentSchema } from '@/lib/validations/finance.schema';
 
 describe('Branch Timezone & Dashboard Revenue Timeline', () => {
@@ -192,6 +198,78 @@ describe('Soft-Deleted Member Recovery & Wipe Endpoint Protection', () => {
     expect(wipePost.status).toBe(403);
     expect(seedGet.status).toBe(403);
     expect(seedPost.status).toBe(403);
+  });
+});
+
+describe('Phone-Based Duplicate Member ID Prevention', () => {
+  it('normalizes Indian mobile formats and generates complete lookup candidates', () => {
+    expect(normalizeMemberPhone('+91 98765 43210')).toBe('9876543210');
+    expect(normalizeMemberPhone('09876543210')).toBe('9876543210');
+    expect(() => normalizeMemberPhone('12345')).toThrow('at least 10 digits');
+
+    const candidates = buildPhoneLookupCandidates('+91 98765 43210');
+    expect(candidates).toContain('9876543210');
+    expect(candidates).toContain('+919876543210');
+    expect(candidates).toContain('919876543210');
+    expect(candidates).toContain('09876543210');
+  });
+
+  it('acquires an advisory lock and blocks duplicate regular member IDs on the same phone', async () => {
+    const executeRawUnsafe = vi.fn().mockResolvedValue(1);
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: 'm1',
+        userId: 'u1',
+        branchId: 'b1',
+        memberNumber: '260020',
+        firstName: 'Vishal',
+        lastName: 'Kumar',
+        phone: '9876543210',
+      },
+    ]);
+    const tx = {
+      $executeRawUnsafe: executeRawUnsafe,
+      memberProfile: { findMany },
+    } as any;
+
+    await expect(assertUniqueMemberPhone(tx, '+91 98765 43210')).rejects.toThrow(
+      DuplicateMemberPhoneError
+    );
+    await expect(assertUniqueMemberPhone(tx, '09876543210')).rejects.toThrow(
+      'ID: 260020'
+    );
+    expect(executeRawUnsafe).toHaveBeenCalledWith(
+      expect.stringMatching(/^SELECT pg_advisory_xact_lock\(-?\d+, -?\d+\)$/)
+    );
+  });
+
+  it('allows upgrading an existing GST guest profile in place when allowGuestUpgrade is true', async () => {
+    const executeRawUnsafe = vi.fn().mockResolvedValue(1);
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: 'g1',
+        userId: 'ug1',
+        branchId: 'b1',
+        memberNumber: 'GST260001',
+        firstName: 'Walk',
+        lastName: 'In',
+        phone: '9876543210',
+      },
+    ]);
+    const tx = {
+      $executeRawUnsafe: executeRawUnsafe,
+      memberProfile: { findMany },
+    } as any;
+
+    const upgradeResult = await assertUniqueMemberPhone(tx, '9876543210', {
+      allowGuestUpgrade: true,
+    });
+    expect(upgradeResult.normalizedPhone).toBe('9876543210');
+    expect(upgradeResult.guestProfileToUpgrade?.memberNumber).toBe('GST260001');
+
+    await expect(assertUniqueMemberPhone(tx, '9876543210')).rejects.toThrow(
+      DuplicateMemberPhoneError
+    );
   });
 });
 

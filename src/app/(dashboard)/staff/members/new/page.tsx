@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { createMemberAction, getActiveMembershipPlansAction } from '@/app/actions/member.actions';
+import {
+  checkMemberPhoneAvailabilityAction,
+  createMemberAction,
+  getActiveMembershipPlansAction,
+} from '@/app/actions/member.actions';
+import { normalizePhone } from '@/lib/utils/normalization';
 import { Loader2, ArrowLeft, CreditCard } from 'lucide-react';
 import { FinanceCheckoutModal } from '../shared/finance-checkout-modal';
 import Link from 'next/link';
@@ -82,7 +87,34 @@ export default function AddMemberPage() {
 
   const isLoading = isSubmitting || isNavigating;
 
-  const onProceed = (data: MemberFormData) => {
+  const onProceed = async (data: MemberFormData) => {
+    const phoneCheck = await checkMemberPhoneAvailabilityAction(data.phone);
+    if (!phoneCheck.available) {
+      toast.add({
+        title: phoneCheck.error || 'A member with this phone number already exists.',
+        type: 'error',
+      });
+      return;
+    }
+
+    if (data.isCoupleEnrollment && data.secondPhone?.trim()) {
+      if (normalizePhone(data.secondPhone) === normalizePhone(data.phone)) {
+        toast.add({
+          title: 'Second member cannot use the same phone number as the primary member.',
+          type: 'error',
+        });
+        return;
+      }
+      const secondCheck = await checkMemberPhoneAvailabilityAction(data.secondPhone);
+      if (!secondCheck.available) {
+        toast.add({
+          title: secondCheck.error || 'Second member phone number already exists.',
+          type: 'error',
+        });
+        return;
+      }
+    }
+
     setPendingData(data);
     setShowCheckout(true);
   };

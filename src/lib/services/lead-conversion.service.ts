@@ -1,6 +1,8 @@
 import prisma from '@/lib/db/prisma';
 import { Prisma } from '@prisma/client';
 import { resolveLeadIdentity } from '@/lib/services/identity-resolution.service';
+import { generateNextMemberNumbers } from '@/lib/services/member-number.service';
+import { assertUniqueMemberPhone } from '@/lib/services/member-phone.service';
 
 export class LeadAlreadyConvertedError extends Error {
   constructor() {
@@ -38,38 +40,64 @@ export async function convertLead(leadId: string, actorId: string) {
       throw new LeadAlreadyConvertedError();
     }
 
-    let userIdToLink: string = '';
-    
-    if (identity.type === 'USER_MATCH') {
-      userIdToLink = identity.userId;
-    } else {
-      // Create credential-less User stub to satisfy Phase 2A strict 1:1 relation
-      // Admin can set password later to enable login.
-      const dummyEmail = lead.emailNormalized || `pending-${lead.id}@gym-placeholder.local`;
-      const newUser = await tx.user.create({
+    const { normalizedPhone, guestProfileToUpgrade } = await assertUniqueMemberPhone(
+      tx,
+      lead.phoneNormalized,
+      { allowGuestUpgrade: true }
+    );
+
+    const [memberNumber] = await generateNextMemberNumbers('', 1, tx);
+
+    let memberProfile;
+    if (guestProfileToUpgrade) {
+      const targetEmail = lead.emailNormalized || `pending-${lead.id}@gym-placeholder.local`;
+      await tx.user.update({
+        where: { id: guestProfileToUpgrade.userId },
         data: {
           name: `${lead.firstName} ${lead.lastName}`,
-          email: dummyEmail,
-          role: 'MEMBER',
-          // No hashedPassword = no credentials
-        }
+          email: targetEmail,
+        },
       });
-      userIdToLink = newUser.id;
-    }
 
-    const memberNumber = `MEM-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
-
-    const memberProfile = await tx.memberProfile.create({
-      data: {
-        userId: userIdToLink,
-        branchId: lead.branchId,
-        memberNumber,
-        firstName: lead.firstName,
-        lastName: lead.lastName,
-        phone: lead.phoneNormalized,
-        status: 'ACTIVE',
+      memberProfile = await tx.memberProfile.update({
+        where: { id: guestProfileToUpgrade.id },
+        data: {
+          branchId: lead.branchId,
+          memberNumber: memberNumber!,
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          phone: normalizedPhone,
+          status: 'ACTIVE',
+        },
+      });
+    } else {
+      let userIdToLink = '';
+      if (identity.type === 'USER_MATCH') {
+        userIdToLink = identity.userId;
+      } else {
+        const dummyEmail = lead.emailNormalized || `pending-${lead.id}@gym-placeholder.local`;
+        const newUser = await tx.user.create({
+          data: {
+            name: `${lead.firstName} ${lead.lastName}`,
+            email: dummyEmail,
+            role: 'MEMBER',
+          },
+        });
+        userIdToLink = newUser.id;
       }
-    });
+
+      memberProfile = await tx.memberProfile.create({
+        data: {
+          userId: userIdToLink,
+          branchId: lead.branchId,
+          memberNumber: memberNumber!,
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          phone: normalizedPhone,
+          status: 'ACTIVE',
+        },
+      });
+    }
 
     const updatedLead = await tx.lead.update({
       where: { id: leadId },

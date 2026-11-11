@@ -1,5 +1,6 @@
 import prisma from '@/lib/db/prisma';
 import { normalizeEmail, normalizePhone } from '@/lib/utils/normalization';
+import { findActiveMemberByPhone } from './member-phone.service';
 
 export type IdentityResolutionResult = 
   | { type: 'NO_MATCH' }
@@ -14,10 +15,10 @@ export async function resolveLeadIdentity(
   const phoneNormalized = normalizePhone(rawPhone);
   const emailNormalized = rawEmail ? normalizeEmail(rawEmail) : null;
 
-  // Find exact member match by email
+  // Find exact active member match by email
   if (emailNormalized) {
     const memberByEmail = await prisma.memberProfile.findFirst({
-      where: { user: { email: emailNormalized } },
+      where: { archivedAt: null, user: { email: emailNormalized } },
       include: { user: true }
     });
 
@@ -25,7 +26,7 @@ export async function resolveLeadIdentity(
       return { type: 'MEMBER_MATCH', memberId: memberByEmail.id };
     }
 
-    // Check if user exists but no member profile
+    // Check if user exists but no active member profile
     const userByEmail = await prisma.user.findUnique({
       where: { email: emailNormalized },
     });
@@ -36,11 +37,9 @@ export async function resolveLeadIdentity(
     }
   }
 
-  // Find member match by phone
+  // Find active member match by normalized or legacy phone
   if (phoneNormalized) {
-    const memberByPhone = await prisma.memberProfile.findFirst({
-      where: { phone: phoneNormalized }
-    });
+    const memberByPhone = await findActiveMemberByPhone(prisma, rawPhone);
 
     if (memberByPhone) {
       // The phone matched a member. If they provided a DIFFERENT email, that's a conflict.

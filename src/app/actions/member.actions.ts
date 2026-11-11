@@ -12,6 +12,12 @@ import {
   recoverMemberEmail,
   recoverOriginalPhone,
 } from '@/lib/services/member-recovery.service';
+import {
+  assertUniqueMemberPhone,
+  DuplicateMemberPhoneError,
+  findActiveMemberByPhone,
+  normalizeMemberPhone,
+} from '@/lib/services/member-phone.service';
 
 const memberSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -77,6 +83,34 @@ export async function getActiveMembershipPlansAction() {
   }
 }
 
+export async function checkMemberPhoneAvailabilityAction(phone: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return { available: false, error: 'Unauthorized' };
+
+    const normalized = normalizeMemberPhone(phone);
+    const existing = await findActiveMemberByPhone(prisma, normalized);
+
+    if (existing && !existing.memberNumber.startsWith('GST')) {
+      return {
+        available: false,
+        error: new DuplicateMemberPhoneError(
+          existing.memberNumber,
+          `${existing.firstName} ${existing.lastName}`.trim()
+        ).message,
+        existingMember: {
+          memberNumber: existing.memberNumber,
+          name: `${existing.firstName} ${existing.lastName}`.trim(),
+        },
+      };
+    }
+
+    return { available: true };
+  } catch (error: any) {
+    return { available: false, error: error.message || 'Invalid phone number' };
+  }
+}
+
 export async function createMemberAction(data: MemberFormData) {
   try {
     const session = await auth();
@@ -133,6 +167,23 @@ export async function createMemberAction(data: MemberFormData) {
 
     // Transaction to create User and MemberProfile
     const member = await prisma.$transaction(async (tx) => {
+      // Enforce atomic phone uniqueness constraint (normalizing phone + acquiring advisory lock)
+      const { normalizedPhone, guestProfileToUpgrade } = await assertUniqueMemberPhone(
+        tx,
+        validatedData.phone,
+        { allowGuestUpgrade: true }
+      );
+
+      let normalizedSecondPhone: string | null = null;
+      if (isCreatingCouplePartner && validatedData.secondPhone?.trim()) {
+        const candidateSecondPhone = normalizeMemberPhone(validatedData.secondPhone);
+        if (candidateSecondPhone === normalizedPhone) {
+          throw new Error('Second member cannot use the same phone number as the primary member.');
+        }
+        const secondCheck = await assertUniqueMemberPhone(tx, validatedData.secondPhone);
+        normalizedSecondPhone = secondCheck.normalizedPhone;
+      }
+
       // Generate collision-free, monotonic member serial codes inside the transaction
       const allocatedNumbers = await generateNextMemberNumbers(
         '',
@@ -142,33 +193,64 @@ export async function createMemberAction(data: MemberFormData) {
       const memberNumber = allocatedNumbers[0]!;
       const secondMemberNumber = allocatedNumbers[1] || '';
 
-      const user = await tx.user.create({
-        data: {
-          name: `${validatedData.firstName} ${validatedData.lastName}`,
-          email: validatedData.email || `temp_${memberNumber}@profitness.local`,
-          hashedPassword,
-          role: Role.MEMBER,
-        }
-      });
+      let memberProfile;
+      if (guestProfileToUpgrade) {
+        await tx.user.update({
+          where: { id: guestProfileToUpgrade.userId },
+          data: {
+            name: `${validatedData.firstName} ${validatedData.lastName}`,
+            email: validatedData.email || `temp_${memberNumber}@profitness.local`,
+            hashedPassword,
+          },
+        });
 
-      const memberProfile = await tx.memberProfile.create({
-        data: {
-          userId: user.id,
-          branchId,
-          memberNumber,
-          firstName: validatedData.firstName,
-          lastName: validatedData.lastName,
-          phone: validatedData.phone,
-          gender: validatedData.gender || null,
-          dob: validatedData.dob ? new Date(validatedData.dob) : null,
-          addressLine1: validatedData.addressLine1 || null,
-          city: validatedData.city || null,
-          zipCode: validatedData.zipCode || null,
-          emergencyContactName: validatedData.emergencyContactName || null,
-          emergencyContactPhone: validatedData.emergencyContactPhone || null,
-          status: 'ACTIVE',
-        }
-      });
+        memberProfile = await tx.memberProfile.update({
+          where: { id: guestProfileToUpgrade.id },
+          data: {
+            branchId,
+            memberNumber,
+            firstName: validatedData.firstName,
+            lastName: validatedData.lastName,
+            phone: normalizedPhone,
+            gender: validatedData.gender || null,
+            dob: validatedData.dob ? new Date(validatedData.dob) : null,
+            addressLine1: validatedData.addressLine1 || null,
+            city: validatedData.city || null,
+            zipCode: validatedData.zipCode || null,
+            emergencyContactName: validatedData.emergencyContactName || null,
+            emergencyContactPhone: validatedData.emergencyContactPhone || null,
+            status: 'ACTIVE',
+          },
+        });
+      } else {
+        const user = await tx.user.create({
+          data: {
+            name: `${validatedData.firstName} ${validatedData.lastName}`,
+            email: validatedData.email || `temp_${memberNumber}@profitness.local`,
+            hashedPassword,
+            role: Role.MEMBER,
+          },
+        });
+
+        memberProfile = await tx.memberProfile.create({
+          data: {
+            userId: user.id,
+            branchId,
+            memberNumber,
+            firstName: validatedData.firstName,
+            lastName: validatedData.lastName,
+            phone: normalizedPhone,
+            gender: validatedData.gender || null,
+            dob: validatedData.dob ? new Date(validatedData.dob) : null,
+            addressLine1: validatedData.addressLine1 || null,
+            city: validatedData.city || null,
+            zipCode: validatedData.zipCode || null,
+            emergencyContactName: validatedData.emergencyContactName || null,
+            emergencyContactPhone: validatedData.emergencyContactPhone || null,
+            status: 'ACTIVE',
+          },
+        });
+      }
 
       let newlyCreatedLinkedMember = null;
       if (isCreatingCouplePartner && validatedData.secondFirstName && validatedData.secondLastName) {
@@ -188,7 +270,7 @@ export async function createMemberAction(data: MemberFormData) {
             memberNumber: secondMemberNumber,
             firstName: validatedData.secondFirstName,
             lastName: validatedData.secondLastName,
-            phone: validatedData.secondPhone || null,
+            phone: normalizedSecondPhone,
             gender: validatedData.secondGender || null,
             dob: validatedData.secondDob ? new Date(validatedData.secondDob) : null,
             addressLine1: validatedData.addressLine1 || null,
@@ -349,6 +431,9 @@ export async function createMemberAction(data: MemberFormData) {
     if (error && typeof error === 'object' && 'issues' in error && Array.isArray(error.issues)) {
       return { success: false, error: error.issues[0]?.message || 'Validation error' };
     }
+    if (error instanceof DuplicateMemberPhoneError || error instanceof Error) {
+      return { success: false, error: error.message };
+    }
     return { success: false, error: 'An unexpected error occurred while creating the member' };
   }
 }
@@ -503,20 +588,28 @@ export async function updateMemberProfileAction(data: UpdateMemberProfileInput) 
       }
     }
 
-    await prisma.$transaction([
-      prisma.user.update({
+    await prisma.$transaction(async (tx) => {
+      let nextPhone: string | null = null;
+      if (validated.phone?.trim()) {
+        const phoneCheck = await assertUniqueMemberPhone(tx, validated.phone, {
+          excludeMemberId: existingMember.id,
+        });
+        nextPhone = phoneCheck.normalizedPhone;
+      }
+
+      await tx.user.update({
         where: { id: existingMember.userId },
         data: {
           name: `${validated.firstName.trim()} ${validated.lastName.trim()}`,
           ...(normalizedEmail ? { email: normalizedEmail } : {}),
         },
-      }),
-      prisma.memberProfile.update({
+      });
+      await tx.memberProfile.update({
         where: { id: existingMember.id },
         data: {
           firstName: validated.firstName.trim(),
           lastName: validated.lastName.trim(),
-          phone: validated.phone?.trim() || null,
+          phone: nextPhone,
           gender: validated.gender?.trim() || null,
           dob: validated.dob ? new Date(validated.dob) : null,
           addressLine1: validated.addressLine1?.trim() || null,
@@ -525,8 +618,8 @@ export async function updateMemberProfileAction(data: UpdateMemberProfileInput) 
           emergencyContactName: validated.emergencyContactName?.trim() || null,
           emergencyContactPhone: validated.emergencyContactPhone?.trim() || null,
         },
-      }),
-    ]);
+      });
+    });
 
     revalidatePath('/staff/members');
     revalidatePath(`/staff/members/${existingMember.id}`);
@@ -651,12 +744,16 @@ async function restoreSingleMemberRecord(memberId: string, actorUserId: string) 
     }
   }
 
-  await prisma.$transaction([
-    prisma.user.update({
+  await prisma.$transaction(async (tx) => {
+    if (recoveredPhone) {
+      await assertUniqueMemberPhone(tx, recoveredPhone, { excludeMemberId: member.id });
+    }
+
+    await tx.user.update({
       where: { id: member.userId },
       data: { email: recoveredEmail },
-    }),
-    prisma.memberProfile.update({
+    });
+    await tx.memberProfile.update({
       where: { id: member.id },
       data: {
         archivedAt: null,
@@ -664,8 +761,8 @@ async function restoreSingleMemberRecord(memberId: string, actorUserId: string) 
         status: 'ACTIVE',
         phone: recoveredPhone,
       },
-    }),
-    prisma.businessActivityLog.create({
+    });
+    await tx.businessActivityLog.create({
       data: {
         entityType: 'MEMBER',
         entityId: member.id,
@@ -678,8 +775,8 @@ async function restoreSingleMemberRecord(memberId: string, actorUserId: string) 
           restoredPhone: recoveredPhone,
         },
       },
-    }),
-  ]);
+    });
+  });
 
   if (member.memberships.length > 0) {
     const { MemberAccessSyncService } = await import('@/lib/services/member-access-sync.service');
